@@ -10,11 +10,13 @@ import {
 
 type UseStudioOfficeSoundPreferenceParams = {
   gatewayUrl: string;
+  storageKey?: string;
   settingsCoordinator: StudioSettingsCoordinator;
 };
 
 export const useStudioOfficeSoundPreference = ({
   gatewayUrl,
+  storageKey,
   settingsCoordinator,
 }: UseStudioOfficeSoundPreferenceParams) => {
   const [preference, setPreference] = useState<StudioOfficeSoundPreference>(
@@ -24,7 +26,7 @@ export const useStudioOfficeSoundPreference = ({
 
   useEffect(() => {
     let cancelled = false;
-    const gatewayKey = gatewayUrl.trim();
+    const gatewayKey = gatewayUrl.trim() || storageKey?.trim() || "";
     if (!gatewayKey) {
       setPreference(defaultStudioOfficeSoundPreference());
       setLoaded(true);
@@ -53,11 +55,11 @@ export const useStudioOfficeSoundPreference = ({
     return () => {
       cancelled = true;
     };
-  }, [gatewayUrl, settingsCoordinator]);
+  }, [gatewayUrl, settingsCoordinator, storageKey]);
 
   const setEnabled = useCallback(
     (enabled: boolean) => {
-      const gatewayKey = gatewayUrl.trim();
+      const gatewayKey = gatewayUrl.trim() || storageKey?.trim() || "";
       setPreference((current) => ({ ...current, enabled }));
       if (!gatewayKey) return;
       settingsCoordinator.schedulePatch(
@@ -65,12 +67,12 @@ export const useStudioOfficeSoundPreference = ({
         0,
       );
     },
-    [gatewayUrl, settingsCoordinator],
+    [gatewayUrl, settingsCoordinator, storageKey],
   );
 
   const setVolume = useCallback(
     (volume: number) => {
-      const gatewayKey = gatewayUrl.trim();
+      const gatewayKey = gatewayUrl.trim() || storageKey?.trim() || "";
       setPreference((current) => ({ ...current, volume }));
       if (!gatewayKey) return;
       settingsCoordinator.schedulePatch(
@@ -78,7 +80,7 @@ export const useStudioOfficeSoundPreference = ({
         0,
       );
     },
-    [gatewayUrl, settingsCoordinator],
+    [gatewayUrl, settingsCoordinator, storageKey],
   );
 
   return {

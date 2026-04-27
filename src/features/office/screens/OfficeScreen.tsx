@@ -1387,6 +1387,7 @@ export function OfficeScreen({
     setVolume: setOfficeSoundVolume,
   } = useStudioOfficeSoundPreference({
     gatewayUrl,
+    storageKey: selectedAdapterType,
     settingsCoordinator,
   });
   const {
