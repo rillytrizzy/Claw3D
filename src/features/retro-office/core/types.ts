@@ -58,6 +58,7 @@ export type RenderAgent = SceneActor & {
   gymStage?: "door_outer" | "door_inner" | "workout";
   qaLabStage?: "door_outer" | "door_inner" | "station";
   qaLabStationType?: QaLabStationType;
+  cryptoRoomStage?: "door_outer" | "door_inner" | "terminal";
   workoutStyle?: "run" | "lift" | "bike" | "box" | "row" | "stretch";
   janitorRouteIndex?: number;
   janitorPauseUntil?: number;
@@ -129,6 +130,13 @@ export type PhoneBoothRoute = {
 
 export type SmsBoothRoute = {
   stage: "door_outer" | "door_inner" | "typing";
+  targetX: number;
+  targetY: number;
+  facing: number;
+};
+
+export type CryptoRoomRoute = {
+  stage: "door_outer" | "door_inner" | "terminal";
   targetX: number;
   targetY: number;
   facing: number;

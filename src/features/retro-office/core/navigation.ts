@@ -32,6 +32,11 @@ export {
   resolveServerRoomRoute,
   SERVER_ROOM_TARGET,
 } from "@/features/retro-office/core/navigation/serverRoomRoute";
+export {
+  CRYPTO_ROOM_DEFAULT_TARGET,
+  getCryptoTerminalLocation,
+  resolveCryptoRoomRoute,
+} from "@/features/retro-office/core/navigation/cryptoRoomRoute";
 
 export const resolvePingPongTargets = (
   item: FurnitureItem,

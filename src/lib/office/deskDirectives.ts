@@ -8,6 +8,7 @@ export type OfficeDeskDirective = "desk" | "release";
 export type OfficeGithubDirective = "github" | "release";
 export type OfficeGymDirective = "gym" | "release";
 export type OfficeQaDirective = "qa_lab" | "release";
+export type OfficeCryptoDirective = "crypto_room" | "release";
 export type OfficeStandupDirective = "standup";
 export type OfficeCallPhase = "needs_message" | "ready_to_call";
 export type OfficeTextPhase = "needs_message" | "ready_to_send";
@@ -33,6 +34,7 @@ export type OfficeIntentSnapshot = {
     | null;
   qa: OfficeQaDirective | null;
   art: null;
+  crypto: OfficeCryptoDirective | null;
   standup: OfficeStandupDirective | null;
   call: OfficeCallDirective | null;
   text: OfficeTextDirective | null;
@@ -244,6 +246,45 @@ const resolveOfficeQaDirectiveFromNormalized = (
     : null;
 };
 
+const resolveOfficeCryptoDirectiveFromNormalized = (
+  normalized: string,
+): OfficeCryptoDirective | null => {
+  const cryptoReleasePatterns = [
+    /\bleave\s+(?:the\s+)?crypto(?:\s+room)?\b/,
+    /\bexit\s+(?:the\s+)?crypto(?:\s+room)?\b/,
+    /\bclose\s+(?:the\s+)?crypto(?:\s+room)?\b/,
+    /\bdone\s+(?:trading|launching)\b/,
+    /\bstop\s+(?:trading|launching)\b/,
+  ];
+  if (cryptoReleasePatterns.some((pattern) => pattern.test(normalized))) {
+    return "release";
+  }
+  const cryptoIntentPatterns = [
+    /\b(?:lets|let's)\s+launch\s+(?:a|this|the|another|new)?\s*(?:token|coin|memecoin|meme\s+coin)\b/,
+    /\blaunch\s+(?:a|this|the|another|new)?\s*(?:token|coin|memecoin|meme\s+coin)\b/,
+    /\bcreate\s+(?:a|this|the|another|new)?\s*(?:token|coin|memecoin|meme\s+coin)\b/,
+    /\bdeploy\s+(?:a|this|the|another|new)?\s*(?:token|coin|memecoin|meme\s+coin)\b/,
+    /\bmint\s+(?:a|this|the|another|new)?\s*(?:token|coin|memecoin|meme\s+coin)\b/,
+    /\bpump\.?fun\b/,
+    /\b(?:lets|let's)\s+(?:go\s+)?(?:to\s+)?(?:the\s+)?crypto(?:\s+room|\s+desk|\s+terminal)?\b/,
+    /\bgo\s+(?:to\s+)?(?:the\s+)?crypto(?:\s+room|\s+desk|\s+terminal)\b/,
+    /\bhead\s+(?:to\s+)?(?:the\s+)?crypto(?:\s+room|\s+desk|\s+terminal)\b/,
+    /\bopen\s+(?:the\s+)?crypto(?:\s+room|\s+desk|\s+terminal)?\b/,
+    /\bcheck\s+(?:the\s+)?(?:crypto|chart|charts|price|prices|pnl|p&l)\b/,
+    /\bshow\s+(?:me\s+)?(?:the\s+)?(?:crypto|chart|charts|pnl|p&l)\b/,
+    /\btrade\s+(?:sol|solana|crypto|tokens?|coins?)\b/,
+    /\bswap\s+(?:sol|solana|tokens?|coins?)\b/,
+    /\bbuy\s+(?:sol|solana|some\s+tokens?|some\s+coins?|memecoin|meme\s+coin)\b/,
+    /\bsell\s+(?:sol|solana|tokens?|coins?|memecoin|meme\s+coin)\b/,
+    /\bdexscreener\b/,
+    /\bcheck\s+(?:my\s+)?(?:wallet|holdings|positions?)\b/,
+    /\bphantom\s+(?:wallet|sign|approve)\b/,
+  ];
+  return cryptoIntentPatterns.some((pattern) => pattern.test(normalized))
+    ? "crypto_room"
+    : null;
+};
+
 const resolveOfficeStandupDirectiveFromNormalized = (
   normalized: string,
 ): OfficeStandupDirective | null => {
@@ -419,6 +460,7 @@ export const resolveOfficeIntentSnapshot = (
       gym: null,
       qa: null,
       art: null,
+      crypto: null,
       standup: null,
       call: null,
       text: null,
@@ -439,6 +481,7 @@ export const resolveOfficeIntentSnapshot = (
   const standupDirective = resolveOfficeStandupDirectiveFromNormalized(normalized);
   const callDirective = resolveOfficeCallDirectiveFromNormalized(normalized);
   const textDirective = resolveOfficeTextDirectiveFromNormalized(normalized);
+  const cryptoDirective = resolveOfficeCryptoDirectiveFromNormalized(normalized);
   const gymDirective = gymManualDirective
     ? {
         directive: gymManualDirective,
@@ -468,6 +511,7 @@ export const resolveOfficeIntentSnapshot = (
     gym: gymDirective,
     qa: qaDirective,
     art: null,
+    crypto: cryptoDirective,
     standup: standupDirective,
     call: callDirective,
     text: textDirective,
@@ -500,6 +544,10 @@ export const resolveOfficeQaDirective = (
   value: string | null | undefined,
 ): OfficeQaDirective | null => resolveOfficeIntentSnapshot(value).qa;
 
+export const resolveOfficeCryptoDirective = (
+  value: string | null | undefined,
+): OfficeCryptoDirective | null => resolveOfficeIntentSnapshot(value).crypto;
+
 export const resolveOfficeStandupDirective = (
   value: string | null | undefined,
 ): OfficeStandupDirective | null => resolveOfficeIntentSnapshot(value).standup;
@@ -518,6 +566,7 @@ const resolveTranscriptDirective = <
     | OfficeGithubDirective
     | OfficeGymDirective
     | OfficeQaDirective
+    | OfficeCryptoDirective
     | OfficeStandupDirective,
 >(
   entries: TranscriptEntry[] | undefined,
@@ -615,6 +664,27 @@ export const reduceOfficeQaHoldState = (params: {
     resolveOfficeQaDirective,
   );
   if (transcriptDirective === "qa_lab") return true;
+  if (transcriptDirective === "release") return false;
+
+  return params.currentHeld;
+};
+
+export const reduceOfficeCryptoHoldState = (params: {
+  currentHeld: boolean;
+  lastUserMessage: string | null | undefined;
+  transcriptEntries: TranscriptEntry[] | undefined;
+}): boolean => {
+  const latestMessageDirective = resolveOfficeCryptoDirective(
+    params.lastUserMessage,
+  );
+  if (latestMessageDirective === "crypto_room") return true;
+  if (latestMessageDirective === "release") return false;
+
+  const transcriptDirective = resolveTranscriptDirective(
+    params.transcriptEntries,
+    resolveOfficeCryptoDirective,
+  );
+  if (transcriptDirective === "crypto_room") return true;
   if (transcriptDirective === "release") return false;
 
   return params.currentHeld;

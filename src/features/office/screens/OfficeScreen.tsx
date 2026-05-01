@@ -867,6 +867,7 @@ export function OfficeScreen({
         officeAgent: OfficeAgent;
         phoneBoothHeld: boolean;
         qaHeld: boolean;
+        cryptoHeld: boolean;
         smsBoothHeld: boolean;
       }
     >
@@ -909,6 +910,9 @@ export function OfficeScreen({
     null,
   );
   const [qaTestingAgentId, setQaTestingAgentId] = useState<string | null>(null);
+  const [cryptoRoomAgentId, setCryptoRoomAgentId] = useState<string | null>(
+    null,
+  );
   const gatewayConfigSnapshot = useRef<GatewayModelPolicySnapshot | null>(null);
   const loadAgentsInFlightRef = useRef<Promise<void> | null>(null);
   const connectionEpochRef = useRef(0);
@@ -1652,6 +1656,7 @@ export function OfficeScreen({
     setMonitorAgentId((current) => (current === agentId ? null : current));
     setGithubReviewAgentId((current) => (current === agentId ? null : current));
     setQaTestingAgentId((current) => (current === agentId ? null : current));
+    setCryptoRoomAgentId((current) => (current === agentId ? null : current));
     setPreparedPhoneCallsByAgentId((current) => {
       if (!(agentId in current)) return current;
       const next = { ...current };
@@ -2601,6 +2606,14 @@ export function OfficeScreen({
   }, [qaTestingAgentId, state.agents]);
 
   useEffect(() => {
+    if (!cryptoRoomAgentId) return;
+    if (state.agents.some((agent) => agent.agentId === cryptoRoomAgentId)) {
+      return;
+    }
+    setCryptoRoomAgentId(null);
+  }, [cryptoRoomAgentId, state.agents]);
+
+  useEffect(() => {
     if (status !== "connected") return;
     let cancelled = false;
     void (async () => {
@@ -2782,6 +2795,7 @@ export function OfficeScreen({
     state.agents,
   ]);
   const {
+    cryptoHoldByAgentId,
     deskHoldByAgentId,
     githubHoldByAgentId,
     jukeboxHoldByAgentId,
@@ -2857,6 +2871,12 @@ export function OfficeScreen({
       null,
     [qaHoldByAgentId, state.agents],
   );
+  const activeCryptoRoomAgentId = useMemo(
+    () =>
+      state.agents.find((agent) => cryptoHoldByAgentId[agent.agentId])
+        ?.agentId ?? null,
+    [cryptoHoldByAgentId, state.agents],
+  );
   useEffect(() => {
     setGithubReviewAgentId(activeGithubReviewAgentId);
   }, [activeGithubReviewAgentId]);
@@ -2876,6 +2896,16 @@ export function OfficeScreen({
     setSelectedChatAgentId(activeQaTestingAgentId);
     dispatch({ type: "selectAgent", agentId: activeQaTestingAgentId });
   }, [activeQaTestingAgentId, dispatch]);
+
+  useEffect(() => {
+    setCryptoRoomAgentId(activeCryptoRoomAgentId);
+  }, [activeCryptoRoomAgentId]);
+
+  useEffect(() => {
+    if (!activeCryptoRoomAgentId) return;
+    setSelectedChatAgentId(activeCryptoRoomAgentId);
+    dispatch({ type: "selectAgent", agentId: activeCryptoRoomAgentId });
+  }, [activeCryptoRoomAgentId, dispatch]);
 
   useEffect(() => {
     const activeKeys = new Set(
@@ -3380,6 +3410,17 @@ export function OfficeScreen({
     );
   }, [qaTestingAgentId]);
 
+  const handleCryptoRoomDismiss = useCallback(() => {
+    if (!cryptoRoomAgentId) return;
+    setOfficeTriggerState((previous) =>
+      clearOfficeAnimationTriggerHold({
+        state: previous,
+        hold: "crypto",
+        agentId: cryptoRoomAgentId,
+      }),
+    );
+  }, [cryptoRoomAgentId]);
+
   const handleChatSend = useCallback(
     async (agentId: string, sessionKey: string, message: string) => {
       stopVoiceReplyPlayback();
@@ -3397,7 +3438,7 @@ export function OfficeScreen({
           createOpenClawLogEntry({
             eventName: "office-intent",
             eventKind: "derived",
-            summary: `agent=${agentId} gym=${intentSnapshot.gym?.source ?? "-"} qa=${intentSnapshot.qa ?? "-"} github=${intentSnapshot.github ?? "-"} desk=${intentSnapshot.desk ?? "-"} text=${intentSnapshot.text?.phase ?? "-"}`,
+            summary: `agent=${agentId} gym=${intentSnapshot.gym?.source ?? "-"} qa=${intentSnapshot.qa ?? "-"} crypto=${intentSnapshot.crypto ?? "-"} github=${intentSnapshot.github ?? "-"} desk=${intentSnapshot.desk ?? "-"} text=${intentSnapshot.text?.phase ?? "-"}`,
             payload: {
               agentId,
               message: trimmed,
@@ -3415,6 +3456,7 @@ export function OfficeScreen({
           intentSnapshot.github ||
           intentSnapshot.gym ||
           intentSnapshot.qa ||
+          intentSnapshot.crypto ||
           intentSnapshot.standup ||
           intentSnapshot.text,
       );
@@ -3426,6 +3468,7 @@ export function OfficeScreen({
         !intentSnapshot.github &&
         !intentSnapshot.gym &&
         !intentSnapshot.qa &&
+        !intentSnapshot.crypto &&
         !intentSnapshot.standup;
       const isTextMessageFollowUp =
         pendingTextMessage?.phase === "needs_message" &&
@@ -3435,6 +3478,7 @@ export function OfficeScreen({
         !intentSnapshot.github &&
         !intentSnapshot.gym &&
         !intentSnapshot.qa &&
+        !intentSnapshot.crypto &&
         !intentSnapshot.standup;
 
       if (
@@ -3678,6 +3722,7 @@ export function OfficeScreen({
         officeAgent: OfficeAgent;
         phoneBoothHeld: boolean;
         qaHeld: boolean;
+        cryptoHeld: boolean;
         smsBoothHeld: boolean;
       }
     >();
@@ -3687,6 +3732,7 @@ export function OfficeScreen({
       const gymHeld = Boolean(gymHoldByAgentId[agent.agentId]);
       const phoneBoothHeld = Boolean(phoneBoothHoldByAgentId[agent.agentId]);
       const qaHeld = Boolean(qaHoldByAgentId[agent.agentId]);
+      const cryptoHeld = Boolean(cryptoHoldByAgentId[agent.agentId]);
       const smsBoothHeld = Boolean(smsBoothHoldByAgentId[agent.agentId]);
       const cached = officeAgentCacheRef.current.get(agent.agentId);
       if (
@@ -3697,6 +3743,7 @@ export function OfficeScreen({
         cached.gymHeld === gymHeld &&
         cached.phoneBoothHeld === phoneBoothHeld &&
         cached.qaHeld === qaHeld &&
+        cached.cryptoHeld === cryptoHeld &&
         cached.smsBoothHeld === smsBoothHeld
       ) {
         nextCache.set(agent.agentId, cached);
@@ -3709,7 +3756,12 @@ export function OfficeScreen({
               status: "running",
               runId: agent.runId ?? `latched-${agent.agentId}`,
             }
-          : (deskHeld || gymHeld || qaHeld || phoneBoothHeld || smsBoothHeld) &&
+          : (deskHeld ||
+                gymHeld ||
+                qaHeld ||
+                cryptoHeld ||
+                phoneBoothHeld ||
+                smsBoothHeld) &&
               agent.status !== "error"
             ? {
                 ...agent,
@@ -3718,6 +3770,8 @@ export function OfficeScreen({
                   agent.runId ??
                   (qaHeld
                     ? `qa-hold-${agent.agentId}`
+                    : cryptoHeld
+                      ? `crypto-hold-${agent.agentId}`
                     : smsBoothHeld
                       ? `text-hold-${agent.agentId}`
                     : phoneBoothHeld
@@ -3736,6 +3790,7 @@ export function OfficeScreen({
         officeAgent,
         phoneBoothHeld,
         qaHeld,
+        cryptoHeld,
         smsBoothHeld,
       });
       return officeAgent;
@@ -3744,6 +3799,7 @@ export function OfficeScreen({
     return nextOfficeAgents;
   }, [
     clockTick,
+    cryptoHoldByAgentId,
     deskHoldByAgentId,
     gymHoldByAgentId,
     phoneBoothHoldByAgentId,
@@ -4133,7 +4189,8 @@ export function OfficeScreen({
       jukeboxHoldByAgentId[agent.agentId] ||
       phoneBoothHoldByAgentId[agent.agentId] ||
       smsBoothHoldByAgentId[agent.agentId] ||
-      qaHoldByAgentId[agent.agentId],
+      qaHoldByAgentId[agent.agentId] ||
+      cryptoHoldByAgentId[agent.agentId],
   ).length;
   const unseenInboxCount = state.agents.filter(
     (agent) => agent.hasUnseenActivity,
@@ -4154,6 +4211,8 @@ export function OfficeScreen({
           deskAssignmentByDeskUid={deskAssignmentByDeskUid}
           githubReviewAgentId={githubReviewAgentId}
           qaTestingAgentId={qaTestingAgentId}
+          cryptoRoomAgentId={cryptoRoomAgentId}
+          onCryptoRoomDismiss={handleCryptoRoomDismiss}
           phoneBoothAgentId={activePhoneBoothAgentId}
           phoneCallScenario={activePhoneCallScenario}
           smsBoothAgentId={activeSmsBoothAgentId}

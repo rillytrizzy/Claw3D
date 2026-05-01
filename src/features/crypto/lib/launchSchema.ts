@@ -74,16 +74,19 @@ export const cryptoLaunchSubmitSchema = z
   });
 
 export const normalizeLaunchDraft = (draft: Partial<CryptoLaunchDraft> | null | undefined): CryptoLaunchDraft => ({
+  // Avoid trimming text fields here so live editing in <input>/<textarea> does not strip
+  // the trailing space the user just typed. Trimming happens at validation/submit time
+  // via cryptoLaunchDraftSchema.
   network: draft?.network === "mainnet" ? "mainnet" : "devnet",
   executionMode: draft?.executionMode === "server_side" ? "server_side" : "user_approved",
-  name: draft?.name?.trim() ?? "",
-  symbol: draft?.symbol?.trim().toUpperCase() ?? "",
-  description: draft?.description?.trim() ?? "",
-  logoUrl: draft?.logoUrl?.trim() ?? "",
-  website: draft?.website?.trim() ?? "",
-  twitter: draft?.twitter?.trim() ?? "",
-  telegram: draft?.telegram?.trim() ?? "",
-  discord: draft?.discord?.trim() ?? "",
+  name: draft?.name ?? "",
+  symbol: (draft?.symbol ?? "").toUpperCase(),
+  description: draft?.description ?? "",
+  logoUrl: draft?.logoUrl ?? "",
+  website: draft?.website ?? "",
+  twitter: draft?.twitter ?? "",
+  telegram: draft?.telegram ?? "",
+  discord: draft?.discord ?? "",
   creatorWallet: draft?.creatorWallet?.trim() ?? "",
   priorityFeeSol:
     typeof draft?.priorityFeeSol === "number" && Number.isFinite(draft.priorityFeeSol)

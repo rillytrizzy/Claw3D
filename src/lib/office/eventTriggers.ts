@@ -37,6 +37,7 @@ import {
   resolveOfficeGithubDirective,
   resolveOfficeGymDirective,
   resolveOfficeQaDirective,
+  resolveOfficeCryptoDirective,
   resolveOfficeTextDirective,
 } from "@/lib/office/deskDirectives";
 import { extractText, extractThinking } from "@/lib/text/message-extract";
@@ -100,6 +101,8 @@ export type OfficeAnimationTriggerState = {
   phoneCallDirectiveKeyByAgentId: StringByAgentId;
   qaDirectiveKeyByAgentId: StringByAgentId;
   qaHoldByAgentId: BooleanByAgentId;
+  cryptoDirectiveKeyByAgentId: StringByAgentId;
+  cryptoHoldByAgentId: BooleanByAgentId;
   sessionEpochSnapshot: SessionEpochSnapshot;
   skillGymDirectiveKeyByAgentId: StringByAgentId;
   skillGymHoldByAgentId: BooleanByAgentId;
@@ -107,6 +110,7 @@ export type OfficeAnimationTriggerState = {
   suppressedPhoneCallDirectiveKeyByAgentId: StringByAgentId;
   suppressedGithubDirectiveKeyByAgentId: StringByAgentId;
   suppressedQaDirectiveKeyByAgentId: StringByAgentId;
+  suppressedCryptoDirectiveKeyByAgentId: StringByAgentId;
   suppressedTextMessageDirectiveKeyByAgentId: StringByAgentId;
   textMessageByAgentId: TextMessageByAgentId;
   textMessageDirectiveKeyByAgentId: StringByAgentId;
@@ -127,6 +131,7 @@ export type OfficeAnimationState = {
   phoneBoothHoldByAgentId: BooleanByAgentId;
   phoneCallByAgentId: PhoneCallByAgentId;
   qaHoldByAgentId: BooleanByAgentId;
+  cryptoHoldByAgentId: BooleanByAgentId;
   smsBoothHoldByAgentId: BooleanByAgentId;
   skillGymHoldByAgentId: BooleanByAgentId;
   streamingByAgentId: BooleanByAgentId;
@@ -590,7 +595,7 @@ const resolveTextMessageFollowUpRequest = (params: {
 
 const applyHoldDirective = (
   currentHeld: boolean,
-  directive: LatestDirective<"desk" | "github" | "qa_lab" | "release"> | null,
+  directive: LatestDirective<"desk" | "github" | "qa_lab" | "crypto_room" | "release"> | null,
 ): boolean => {
   if (!directive) return currentHeld;
   if (directive.directive === "release") return false;
@@ -645,6 +650,14 @@ const pruneOfficeAnimationTriggerState = (
       activeAgentIds,
     ),
     qaHoldByAgentId: pruneBooleanMap(state.qaHoldByAgentId, activeAgentIds),
+    cryptoDirectiveKeyByAgentId: pruneStringMap(
+      state.cryptoDirectiveKeyByAgentId,
+      activeAgentIds,
+    ),
+    cryptoHoldByAgentId: pruneBooleanMap(
+      state.cryptoHoldByAgentId,
+      activeAgentIds,
+    ),
     skillGymDirectiveKeyByAgentId: pruneStringMap(
       state.skillGymDirectiveKeyByAgentId,
       activeAgentIds,
@@ -668,6 +681,10 @@ const pruneOfficeAnimationTriggerState = (
     ),
     suppressedQaDirectiveKeyByAgentId: pruneStringMap(
       state.suppressedQaDirectiveKeyByAgentId,
+      activeAgentIds,
+    ),
+    suppressedCryptoDirectiveKeyByAgentId: pruneStringMap(
+      state.suppressedCryptoDirectiveKeyByAgentId,
       activeAgentIds,
     ),
     suppressedTextMessageDirectiveKeyByAgentId: pruneStringMap(
@@ -792,6 +809,28 @@ const applyUserMessageTriggers = (params: {
           : { ...next.qaHoldByAgentId, [params.agentId]: true },
     };
   }
+  const cryptoDirective = intentSnapshot.crypto;
+  if (cryptoDirective) {
+    const directiveKey = normalizeCommandText(params.message);
+    const isSuppressed =
+      next.suppressedCryptoDirectiveKeyByAgentId[params.agentId] ===
+      directiveKey;
+    next = {
+      ...next,
+      cryptoDirectiveKeyByAgentId: {
+        ...next.cryptoDirectiveKeyByAgentId,
+        [params.agentId]: directiveKey,
+      },
+      cryptoHoldByAgentId:
+        cryptoDirective === "release" || isSuppressed
+          ? Object.fromEntries(
+              Object.entries(next.cryptoHoldByAgentId).filter(
+                ([agentId]) => agentId !== params.agentId,
+              ),
+            )
+          : { ...next.cryptoHoldByAgentId, [params.agentId]: true },
+    };
+  }
   if (intentSnapshot.gym?.source === "manual") {
     const gymCommandKey = normalizeCommandText(params.message);
     next = {
@@ -909,6 +948,8 @@ export const createOfficeAnimationTriggerState =
     phoneCallDirectiveKeyByAgentId: emptyObject(),
     qaDirectiveKeyByAgentId: emptyObject(),
     qaHoldByAgentId: emptyObject(),
+    cryptoDirectiveKeyByAgentId: emptyObject(),
+    cryptoHoldByAgentId: emptyObject(),
     sessionEpochSnapshot: {},
     skillGymDirectiveKeyByAgentId: emptyObject(),
     skillGymHoldByAgentId: emptyObject(),
@@ -916,6 +957,7 @@ export const createOfficeAnimationTriggerState =
     suppressedPhoneCallDirectiveKeyByAgentId: emptyObject(),
     suppressedGithubDirectiveKeyByAgentId: emptyObject(),
     suppressedQaDirectiveKeyByAgentId: emptyObject(),
+    suppressedCryptoDirectiveKeyByAgentId: emptyObject(),
     suppressedTextMessageDirectiveKeyByAgentId: emptyObject(),
     textMessageByAgentId: emptyObject(),
     textMessageDirectiveKeyByAgentId: emptyObject(),
@@ -1099,6 +1141,8 @@ export const reconcileOfficeAnimationTriggerState = (params: {
   const phoneCallDirectiveKeyByAgentId: StringByAgentId = {};
   const qaHoldByAgentId: BooleanByAgentId = {};
   const qaDirectiveKeyByAgentId: StringByAgentId = {};
+  const cryptoHoldByAgentId: BooleanByAgentId = {};
+  const cryptoDirectiveKeyByAgentId: StringByAgentId = {};
   const skillGymHoldByAgentId: BooleanByAgentId = {};
   const skillGymDirectiveKeyByAgentId: StringByAgentId = {};
   const textMessageByAgentId: TextMessageByAgentId = {};
@@ -1181,6 +1225,25 @@ export const reconcileOfficeAnimationTriggerState = (params: {
       qaHoldByAgentId[agentId] = true;
     }
 
+    const cryptoDirective = resolveLatestDirective({
+      lastUserMessage: agent.lastUserMessage,
+      transcriptEntries: agent.transcriptEntries,
+      resolver: resolveOfficeCryptoDirective,
+    });
+    if (cryptoDirective) {
+      cryptoDirectiveKeyByAgentId[agentId] = cryptoDirective.key;
+      const suppressedKey =
+        next.suppressedCryptoDirectiveKeyByAgentId[agentId] ?? "";
+      if (
+        cryptoDirective.directive !== "release" &&
+        suppressedKey !== cryptoDirective.key
+      ) {
+        cryptoHoldByAgentId[agentId] = true;
+      }
+    } else if (next.cryptoHoldByAgentId[agentId]) {
+      cryptoHoldByAgentId[agentId] = true;
+    }
+
     const skillGymDirective = resolveLatestDirective({
       lastUserMessage: agent.lastUserMessage,
       transcriptEntries: agent.transcriptEntries,
@@ -1258,6 +1321,8 @@ export const reconcileOfficeAnimationTriggerState = (params: {
     phoneCallDirectiveKeyByAgentId,
     qaDirectiveKeyByAgentId,
     qaHoldByAgentId,
+    cryptoDirectiveKeyByAgentId,
+    cryptoHoldByAgentId,
     sessionEpochSnapshot: buildSessionEpochSnapshot(params.agents),
     skillGymDirectiveKeyByAgentId,
     skillGymHoldByAgentId,
@@ -1269,7 +1334,7 @@ export const reconcileOfficeAnimationTriggerState = (params: {
 
 export const clearOfficeAnimationTriggerHold = (params: {
   agentId: string;
-  hold: "github" | "qa" | "call" | "text";
+  hold: "github" | "qa" | "crypto" | "call" | "text";
   state: OfficeAnimationTriggerState;
 }): OfficeAnimationTriggerState => {
   const next = { ...params.state };
@@ -1318,6 +1383,22 @@ export const clearOfficeAnimationTriggerHold = (params: {
             [params.agentId]: directiveKey,
           }
         : next.suppressedTextMessageDirectiveKeyByAgentId,
+    };
+  }
+  if (params.hold === "crypto") {
+    const directiveKey =
+      next.cryptoDirectiveKeyByAgentId[params.agentId] ?? "";
+    const cryptoHoldByAgentId = { ...next.cryptoHoldByAgentId };
+    delete cryptoHoldByAgentId[params.agentId];
+    return {
+      ...next,
+      cryptoHoldByAgentId,
+      suppressedCryptoDirectiveKeyByAgentId: directiveKey
+        ? {
+            ...next.suppressedCryptoDirectiveKeyByAgentId,
+            [params.agentId]: directiveKey,
+          }
+        : next.suppressedCryptoDirectiveKeyByAgentId,
     };
   }
   const directiveKey = next.qaDirectiveKeyByAgentId[params.agentId] ?? "";
@@ -1407,6 +1488,7 @@ export const buildOfficeAnimationState = (params: {
     phoneBoothHoldByAgentId,
     phoneCallByAgentId,
     qaHoldByAgentId: params.state.qaHoldByAgentId,
+    cryptoHoldByAgentId: params.state.cryptoHoldByAgentId,
     smsBoothHoldByAgentId,
     skillGymHoldByAgentId: params.state.skillGymHoldByAgentId,
     streamingByAgentId,

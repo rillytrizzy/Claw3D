@@ -125,6 +125,8 @@ import {
 import {
   astar,
   buildNavGrid,
+  CRYPTO_ROOM_DEFAULT_TARGET,
+  getCryptoTerminalLocation,
   getDeskLocations,
   getGymWorkoutLocations,
   getJanitorCleaningStops,
@@ -133,6 +135,7 @@ import {
   GYM_DEFAULT_TARGET,
   MEETING_OVERFLOW_LOCATIONS,
   QA_LAB_DEFAULT_TARGET,
+  resolveCryptoRoomRoute,
   resolveDeskIndexForItem,
   resolveGymRoute,
   resolvePhoneBoothRoute,
@@ -999,6 +1002,7 @@ function useAgentTick(
   smsBoothHoldByAgentId: Record<string, boolean> = {},
   phoneBoothHoldByAgentId: Record<string, boolean> = {},
   qaHoldByAgentId: Record<string, boolean> = {},
+  cryptoHoldByAgentId: Record<string, boolean> = {},
   githubReviewByAgentId: Record<string, boolean> = {},
   standupMeeting: StandupMeeting | null = null,
 ) {
@@ -1151,6 +1155,7 @@ function useAgentTick(
       const explicitSmsBoothHold = Boolean(smsBoothHoldByAgentId[agent.id]);
       const explicitPhoneBoothHold = Boolean(phoneBoothHoldByAgentId[agent.id]);
       const explicitQaHold = Boolean(qaHoldByAgentId[agent.id]);
+      const explicitCryptoHold = Boolean(cryptoHoldByAgentId[agent.id]);
       const explicitGithubHold = Boolean(githubReviewByAgentId[agent.id]);
       if (
         explicitGymHold &&
@@ -1206,6 +1211,9 @@ function useAgentTick(
         (furnitureRef.current ?? []).find(
           (item) => item.type === "phone_booth",
         ) ?? null;
+      const cryptoTerminalTarget =
+        getCryptoTerminalLocation(furnitureRef.current ?? []) ??
+        CRYPTO_ROOM_DEFAULT_TARGET;
 
       if (agent.status === "working" && !explicitDeskHold && deskPos)
         stickyUntilRef.current.set(agent.id, now + DESK_STICKY_MS);
@@ -1219,6 +1227,7 @@ function useAgentTick(
               explicitSmsBoothHold ||
               explicitPhoneBoothHold ||
               explicitQaHold ||
+              explicitCryptoHold ||
               explicitGithubHold ||
               agent.status === "working" ||
               stickyUntil > now
@@ -1245,6 +1254,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           const targetChanged =
             existing.targetX !== meetingTarget.x ||
@@ -1290,6 +1300,7 @@ function useAgentTick(
           ns.gymStage = gymRoute.stage;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = gymWorkoutPos.workoutStyle;
           const targetChanged =
             existing.targetX !== gymRoute.targetX ||
@@ -1360,6 +1371,52 @@ function useAgentTick(
               ? "standing"
               : "walking";
           ns.facing = qaLabRoute.facing;
+        } else if (explicitCryptoHold) {
+          const cryptoRoomRoute = resolveCryptoRoomRoute(
+            existing.x,
+            existing.y,
+            cryptoTerminalTarget,
+          );
+          ns.pingPongUntil = undefined;
+          ns.pingPongTargetX = undefined;
+          ns.pingPongTargetY = undefined;
+          ns.pingPongFacing = undefined;
+          ns.pingPongPartnerId = undefined;
+          ns.pingPongTableUid = undefined;
+          ns.pingPongSide = undefined;
+          ns.walkSpeed =
+            existing.pingPongPreviousWalkSpeed ?? existing.walkSpeed;
+          ns.pingPongPreviousWalkSpeed = undefined;
+          ns.interactionTarget = "crypto_room";
+          ns.phoneBoothStage = undefined;
+          ns.serverRoomStage = undefined;
+          ns.gymStage = undefined;
+          ns.qaLabStage = undefined;
+          ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = cryptoRoomRoute.stage;
+          ns.workoutStyle = undefined;
+          const targetChanged =
+            existing.targetX !== cryptoRoomRoute.targetX ||
+            existing.targetY !== cryptoRoomRoute.targetY ||
+            existing.cryptoRoomStage !== cryptoRoomRoute.stage;
+          ns.targetX = cryptoRoomRoute.targetX;
+          ns.targetY = cryptoRoomRoute.targetY;
+          if (targetChanged) {
+            ns.path = planPath(
+              existing.x,
+              existing.y,
+              cryptoRoomRoute.targetX,
+              cryptoRoomRoute.targetY,
+            );
+          }
+          ns.state =
+            Math.hypot(
+              existing.x - cryptoRoomRoute.targetX,
+              existing.y - cryptoRoomRoute.targetY,
+            ) < 15
+              ? "standing"
+              : "walking";
+          ns.facing = cryptoRoomRoute.facing;
         } else if (explicitGithubHold) {
           const serverRoomRoute = resolveServerRoomRoute(
             existing.x,
@@ -1381,6 +1438,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           const targetChanged =
             existing.targetX !== serverRoomRoute.targetX ||
@@ -1427,6 +1485,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           const targetChanged =
             existing.targetX !== smsBoothRoute.targetX ||
@@ -1472,6 +1531,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           const targetChanged =
             existing.targetX !== phoneBoothRoute.targetX ||
@@ -1512,6 +1572,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           const targetChanged =
             existing.targetX !== deskPos.x || existing.targetY !== deskPos.y;
@@ -1540,6 +1601,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           ns.targetX = existing.x;
           ns.targetY = existing.y;
@@ -1562,6 +1624,7 @@ function useAgentTick(
           ns.gymStage = undefined;
           ns.qaLabStage = undefined;
           ns.qaLabStationType = undefined;
+          ns.cryptoRoomStage = undefined;
           ns.workoutStyle = undefined;
           ns.targetX = existing.x;
           ns.targetY = existing.y;
@@ -1594,6 +1657,11 @@ function useAgentTick(
               existing.y,
               qaStationPos,
             );
+            const cryptoRoomRoute = resolveCryptoRoomRoute(
+              existing.x,
+              existing.y,
+              cryptoTerminalTarget,
+            );
             const nextTarget =
               explicitMeetingHold && meetingTarget
                 ? { x: meetingTarget.x, y: meetingTarget.y }
@@ -1611,18 +1679,24 @@ function useAgentTick(
                         }
                       : explicitQaHold
                         ? { x: qaLabRoute.targetX, y: qaLabRoute.targetY }
-                        : explicitGithubHold
+                        : explicitCryptoHold
                           ? {
-                              x: serverRoomRoute.targetX,
-                              y: serverRoomRoute.targetY,
+                              x: cryptoRoomRoute.targetX,
+                              y: cryptoRoomRoute.targetY,
                             }
-                          : deskPos;
+                          : explicitGithubHold
+                            ? {
+                                x: serverRoomRoute.targetX,
+                                y: serverRoomRoute.targetY,
+                              }
+                            : deskPos;
             if (!nextTarget) {
               ns.interactionTarget = undefined;
               ns.serverRoomStage = undefined;
               ns.gymStage = undefined;
               ns.qaLabStage = undefined;
               ns.qaLabStationType = undefined;
+              ns.cryptoRoomStage = undefined;
               ns.workoutStyle = undefined;
               ns.targetX = existing.x;
               ns.targetY = existing.y;
@@ -1645,9 +1719,11 @@ function useAgentTick(
                     ? "phone_booth"
                     : explicitQaHold
                       ? "qa_lab"
-                      : explicitGithubHold
-                        ? "server_room"
-                        : "desk";
+                      : explicitCryptoHold
+                        ? "crypto_room"
+                        : explicitGithubHold
+                          ? "server_room"
+                          : "desk";
             ns.phoneBoothStage =
               explicitMeetingHold ||
               explicitGymHold ||
@@ -1687,6 +1763,19 @@ function useAgentTick(
             ns.qaLabStationType = explicitQaHold
               ? qaStationPos.stationType
               : undefined;
+            ns.cryptoRoomStage = explicitMeetingHold
+              ? undefined
+              : explicitGymHold
+                ? undefined
+                : explicitSmsBoothHold
+                  ? undefined
+                  : explicitPhoneBoothHold
+                    ? undefined
+                    : explicitQaHold
+                      ? undefined
+                      : explicitCryptoHold
+                        ? cryptoRoomRoute.stage
+                        : undefined;
             ns.workoutStyle = explicitGymHold
               ? gymWorkoutPos.workoutStyle
               : undefined;
@@ -1707,6 +1796,7 @@ function useAgentTick(
             ns.gymStage = undefined;
             ns.qaLabStage = undefined;
             ns.qaLabStationType = undefined;
+            ns.cryptoRoomStage = undefined;
             ns.workoutStyle = undefined;
             ns.targetX = existing.x;
             ns.targetY = existing.y;
@@ -1720,6 +1810,7 @@ function useAgentTick(
             ns.gymStage = undefined;
             ns.qaLabStage = undefined;
             ns.qaLabStationType = undefined;
+            ns.cryptoRoomStage = undefined;
             ns.workoutStyle = undefined;
             const r = pickRoamPoint(agent.id);
             ns.targetX = r.x;
@@ -1736,6 +1827,11 @@ function useAgentTick(
         const phoneBoothRoute = resolvePhoneBoothRoute(phoneBoothItem, sx, sy);
         const gymRoute = resolveGymRoute(sx, sy, gymWorkoutPos);
         const qaLabRoute = resolveQaLabRoute(sx, sy, qaStationPos);
+        const cryptoRoomRoute = resolveCryptoRoomRoute(
+          sx,
+          sy,
+          cryptoTerminalTarget,
+        );
         const initialTarget =
           effectiveStatus === "working"
             ? explicitMeetingHold && meetingTarget
@@ -1763,12 +1859,17 @@ function useAgentTick(
                           x: qaLabRoute.targetX,
                           y: qaLabRoute.targetY,
                         }
-                      : explicitGithubHold
+                      : explicitCryptoHold
                         ? {
-                            x: serverRoomRoute.targetX,
-                            y: serverRoomRoute.targetY,
+                            x: cryptoRoomRoute.targetX,
+                            y: cryptoRoomRoute.targetY,
                           }
-                        : (deskPos ?? { x: sx, y: sy })
+                        : explicitGithubHold
+                          ? {
+                              x: serverRoomRoute.targetX,
+                              y: serverRoomRoute.targetY,
+                            }
+                          : (deskPos ?? { x: sx, y: sy })
             : { x: sx, y: sy };
         ns = {
           x: sx,
@@ -1786,6 +1887,7 @@ function useAgentTick(
               explicitSmsBoothHold ||
               explicitPhoneBoothHold ||
               explicitQaHold ||
+              explicitCryptoHold ||
               explicitGithubHold ||
               deskPos)
               ? "walking"
@@ -1800,11 +1902,13 @@ function useAgentTick(
                   ? "phone_booth"
                   : explicitQaHold
                     ? "qa_lab"
-                    : explicitGithubHold
-                      ? "server_room"
-                      : deskPos
-                        ? "desk"
-                        : undefined,
+                    : explicitCryptoHold
+                      ? "crypto_room"
+                      : explicitGithubHold
+                        ? "server_room"
+                        : deskPos
+                          ? "desk"
+                          : undefined,
           smsBoothStage:
             explicitMeetingHold || explicitGymHold || !explicitSmsBoothHold
               ? undefined
@@ -1838,6 +1942,15 @@ function useAgentTick(
           qaLabStationType: explicitQaHold
             ? qaStationPos.stationType
             : undefined,
+          cryptoRoomStage:
+            explicitMeetingHold ||
+            explicitGymHold ||
+            explicitSmsBoothHold ||
+            explicitPhoneBoothHold ||
+            explicitQaHold ||
+            !explicitCryptoHold
+              ? undefined
+              : cryptoRoomRoute.stage,
           workoutStyle: explicitGymHold
             ? gymWorkoutPos.workoutStyle
             : undefined,
@@ -1866,6 +1979,7 @@ function useAgentTick(
     smsBoothHoldByAgentId,
     phoneBoothHoldByAgentId,
     qaHoldByAgentId,
+    cryptoHoldByAgentId,
     qaLabStations,
     githubReviewByAgentId,
     meetingParticipants,
@@ -2459,6 +2573,8 @@ export function RetroOffice3D({
   textMessageScenario = null,
   qaHoldByAgentId = EMPTY_BOOLEAN_RECORD,
   qaTestingAgentId = null,
+  cryptoRoomAgentId = null,
+  onCryptoRoomDismiss,
   standupMeeting = null,
   standupAutoOpenBoard = true,
   monitorAgentId = null,
@@ -2549,6 +2665,7 @@ export function RetroOffice3D({
     | "phoneBoothHoldByAgentId"
     | "smsBoothHoldByAgentId"
     | "qaHoldByAgentId"
+    | "cryptoHoldByAgentId"
     | "jukeboxHoldByAgentId"
   > | null;
   readOnly?: boolean;
@@ -2564,6 +2681,8 @@ export function RetroOffice3D({
   textMessageScenario?: MockTextMessageScenario | null;
   qaHoldByAgentId?: Record<string, boolean>;
   qaTestingAgentId?: string | null;
+  cryptoRoomAgentId?: string | null;
+  onCryptoRoomDismiss?: () => void;
   standupMeeting?: StandupMeeting | null;
   standupAutoOpenBoard?: boolean;
   monitorAgentId?: string | null;
@@ -2673,6 +2792,11 @@ export function RetroOffice3D({
     animationState?.phoneBoothHoldByAgentId ?? EMPTY_BOOLEAN_RECORD;
   const resolvedQaHoldByAgentId =
     animationState?.qaHoldByAgentId ?? qaHoldByAgentId;
+  const resolvedCryptoHoldByAgentId =
+    animationState?.cryptoHoldByAgentId ??
+    (cryptoRoomAgentId
+      ? { [cryptoRoomAgentId]: true }
+      : EMPTY_BOOLEAN_RECORD);
   const resolvedGithubReviewByAgentId =
     animationState?.githubHoldByAgentId ??
     (githubReviewAgentId
@@ -3003,6 +3127,7 @@ export function RetroOffice3D({
     resolvedSmsBoothHoldByAgentId,
     resolvedPhoneBoothHoldByAgentId,
     resolvedQaHoldByAgentId,
+    resolvedCryptoHoldByAgentId,
     resolvedGithubReviewByAgentId,
     standupMeeting,
   );
@@ -3227,6 +3352,7 @@ export function RetroOffice3D({
   );
   const [githubCommandArrived, setGithubCommandArrived] = useState(false);
   const [qaCommandArrived, setQaCommandArrived] = useState(false);
+  const [cryptoCommandArrived, setCryptoCommandArrived] = useState(false);
   const githubImmersive =
     Boolean(
       activeGithubTerminal &&
@@ -3847,6 +3973,21 @@ export function RetroOffice3D({
         );
       }
 
+      if (!cryptoRoomAgentId) {
+        setCryptoCommandArrived(false);
+      } else {
+        const agent = agentLookup.get(cryptoRoomAgentId);
+        const arrived = Boolean(
+          agent &&
+          agent.interactionTarget === "crypto_room" &&
+          agent.cryptoRoomStage === "terminal" &&
+          Math.hypot(agent.x - agent.targetX, agent.y - agent.targetY) < 18,
+        );
+        setCryptoCommandArrived((current) =>
+          current === arrived ? current : arrived,
+        );
+      }
+
       if (!phoneBoothAgentId) {
         setPhoneBoothCommandArrived(false);
         if (!manualPhoneBoothOpen) {
@@ -3931,6 +4072,7 @@ export function RetroOffice3D({
       window.clearInterval(intervalId);
     };
   }, [
+    cryptoRoomAgentId,
     githubReviewAgentId,
     manualSmsBoothOpen,
     manualPhoneBoothOpen,
@@ -4513,6 +4655,26 @@ export function RetroOffice3D({
       };
     }
   }, [activeCryptoTerminal, activeCryptoTerminalUid]);
+
+  useEffect(() => {
+    if (!cryptoRoomAgentId || !cryptoCommandArrived) return;
+    if (activeCryptoTerminalUid) return;
+    const terminal = furniture.find((item) => item.type === "crypto_terminal");
+    if (!terminal) return;
+    setFollowAgentId(null);
+    setActiveAtmUid(null);
+    setActiveGithubTerminalUid(null);
+    setActiveQaTerminalUid(null);
+    setActiveKanbanUid(null);
+    onMonitorSelect?.(null);
+    setActiveCryptoTerminalUid(terminal._uid);
+  }, [
+    activeCryptoTerminalUid,
+    cryptoCommandArrived,
+    cryptoRoomAgentId,
+    furniture,
+    onMonitorSelect,
+  ]);
 
   useEffect(() => {
     if (activeKanbanUid && !activeKanbanBoard) {
@@ -6794,7 +6956,10 @@ export function RetroOffice3D({
           >
             <button
               type="button"
-              onClick={() => setActiveCryptoTerminalUid(null)}
+              onClick={() => {
+                setActiveCryptoTerminalUid(null);
+                onCryptoRoomDismiss?.();
+              }}
               className="rounded-full border border-cyan-300/18 bg-[#04111b] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/90 shadow-[0_0_24px_rgba(34,211,238,0.12)] transition-colors hover:border-cyan-200/35 hover:text-white"
             >
               Exit
