@@ -24,13 +24,14 @@ export const CAMERA_PRESETS = {
     target: DISTRICT_CAMERA_TARGET,
     zoom: DISTRICT_CAMERA_ZOOM,
   },
+  // Isometric rule: pos offset from target must have x === z (45° azimuth).
   frontDesk: {
-    pos: [-2, 8, 4],
+    pos: [1, 8, 2],   // offset [4,8,4] from target [-3,0,-2]
     target: [-3, 0, -2],
     zoom: 70,
   },
   lounge: {
-    pos: [7, 7, -5],
+    pos: [9, 7, 1],   // offset [4,7,4] from target [5,0,-3]
     target: [5, 0, -3],
     zoom: 62,
   },
@@ -49,15 +50,17 @@ export function CameraAnimator({
   orbitRef: RefObject<OrbitControllerLike | null>;
 }) {
   const { camera } = useThree();
-  const activePerspectiveCameraRef = useRef<THREE.PerspectiveCamera | null>(
-    camera instanceof THREE.PerspectiveCamera ? camera : null,
+  const activeCameraRef = useRef<THREE.OrthographicCamera | THREE.PerspectiveCamera | null>(
+    camera instanceof THREE.OrthographicCamera || camera instanceof THREE.PerspectiveCamera
+      ? camera
+      : null,
   );
   const targetPositionRef = useRef(new THREE.Vector3());
   const targetLookAtRef = useRef(new THREE.Vector3());
 
   useEffect(() => {
-    if (camera instanceof THREE.PerspectiveCamera) {
-      activePerspectiveCameraRef.current = camera;
+    if (camera instanceof THREE.OrthographicCamera || camera instanceof THREE.PerspectiveCamera) {
+      activeCameraRef.current = camera;
     }
   }, [camera]);
 
@@ -65,7 +68,7 @@ export function CameraAnimator({
     const preset = presetRef.current;
     const orbit = orbitRef.current;
     if (!preset || !orbit) return;
-    const activeCamera = activePerspectiveCameraRef.current;
+    const activeCamera = activeCameraRef.current;
 
     targetPositionRef.current.set(...preset.pos);
     targetLookAtRef.current.set(...preset.target);
@@ -352,7 +355,7 @@ export function DayNightCycle({
       <ambientLight ref={ambientRef} intensity={0.75} color="#c8d0e0" />
       <directionalLight
         ref={sunRef}
-        position={[8, 14, 6]}
+        position={[10, 14, 10]}
         intensity={1.3}
         color="#f0f4ff"
         castShadow

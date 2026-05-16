@@ -43,8 +43,9 @@ export const REMOTE_ROAM_POINTS = [
   { x: 150, y: 1640 },
 ] as const;
 
-export const DISTRICT_CAMERA_POSITION: [number, number, number] = [14, 16, 18];
-export const DISTRICT_CAMERA_TARGET: [number, number, number] = [0, 0, 1];
+// True isometric: position [d,d,d] → camera direction [-1,-1,-1], azimuth 45°, elevation 35.26°
+export const DISTRICT_CAMERA_POSITION: [number, number, number] = [16, 16, 16];
+export const DISTRICT_CAMERA_TARGET: [number, number, number] = [0, 0, 0];
 export const DISTRICT_CAMERA_ZOOM = 34;
 
 export const isRemoteOfficeAgentId = (agentId: string) => agentId.startsWith("remote:");
