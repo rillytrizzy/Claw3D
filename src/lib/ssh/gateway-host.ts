@@ -1,3 +1,5 @@
+import { assertGovernanceAllowed } from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
 import * as childProcess from "node:child_process";
 
@@ -158,6 +160,10 @@ export const runSshJson = (params: {
     sshArgs.push("-p", String(params.sshPort));
   }
   sshArgs.push(params.sshTarget, ...params.argv);
+
+  const policy = resolveGovernancePolicy();
+  assertGovernanceAllowed(policy, "allowGatewaySsh", "gateway ssh");
+  assertGovernanceAllowed(policy, "allowProcessLaunch", "ssh process launch");
 
   const result = childProcess.spawnSync("ssh", sshArgs, { ...options });
   if (result.error) {

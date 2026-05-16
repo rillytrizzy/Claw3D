@@ -1,3 +1,5 @@
+import { assertGovernanceAllowed } from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
 import { buildAgentMainSessionKey, type GatewayClient } from "@/lib/gateway/GatewayClient";
 import {
   removeGatewayAgentFromConfigOnly,
@@ -94,6 +96,10 @@ export const installPackagedSkillViaGatewayAgent = async (params: {
   client: GatewayClient;
   request: PackagedSkillInstallRequest;
 }): Promise<PackagedSkillInstallResult> => {
+  const policy = resolveGovernancePolicy();
+  assertGovernanceAllowed(policy, "allowInstalls", "skill install");
+  assertGovernanceAllowed(policy, "allowAgentSpawn", "skill installer agent spawn");
+
   const packageId = normalizeRequired(params.request.packageId, "packageId");
   const packagedSkill = getPackagedSkillById(packageId);
   if (!packagedSkill) {
