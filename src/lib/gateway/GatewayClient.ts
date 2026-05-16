@@ -918,7 +918,7 @@ export const useGatewayConnection = (
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         try {
           await client.connect({
-            gatewayUrl: resolveStudioProxyGatewayUrl(),
+            gatewayUrl: resolveStudioProxyGatewayUrl(gatewayUrl),
             token,
             authScopeKey: gatewayUrl,
             clientName: resolveGatewayClientName(selectedAdapterType, gatewayUrl),
@@ -988,7 +988,7 @@ export const useGatewayConnection = (
   useEffect(() => {
     if (didAutoConnect.current) return;
     if (!settingsLoaded) return;
-    if (!hasLastKnownGoodState) return;
+    if (!hasLastKnownGoodState && selectedAdapterType !== "demo") return;
     if (!gatewayUrl.trim()) return;
     if (!isAutoManagedAdapter(selectedAdapterType)) return;
     didAutoConnect.current = true;

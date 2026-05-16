@@ -25,7 +25,8 @@ import {
   useState,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
+import { configureTextBuilder } from "troika-three-text";
 import * as THREE from "three";
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { AtmImmersiveScreen } from "@/features/office/screens/AtmImmersiveScreen";
@@ -225,6 +226,10 @@ import {
   TrailSystem as AgentTrailSystem,
 } from "@/features/retro-office/systems/visualSystems";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
+
+configureTextBuilder({
+  defaultFontURL: "/api/local-font/default",
+});
 
 type OfficeDeskMonitorMap = Record<string, OfficeDeskMonitor>;
 type RenderAgentUiSnapshot = Pick<RenderAgent, "state" | "status">;
@@ -430,6 +435,113 @@ function CameraRig({ target }: { target: [number, number, number] }) {
     camera.updateProjectionMatrix();
   }, [camera, target]);
   return null;
+}
+
+const PIXEL_HOTEL_SWATCHES = [
+  "#efb15f",
+  "#62c3b2",
+  "#e35d6a",
+  "#7557d8",
+  "#2f9ed8",
+] as const;
+
+const PIXEL_HOTEL_DISCONNECTED_AGENTS = [
+  { id: "pixel-gemini", name: "Gemini", color: "#62c3b2" },
+  { id: "pixel-codex", name: "Codex", color: "#efb15f" },
+  { id: "pixel-claude", name: "Claude", color: "#7557d8" },
+] as const;
+
+function PixelHotelBackdrop({ agents }: { agents: OfficeAgent[] }) {
+  const visibleAgents = [
+    ...PIXEL_HOTEL_DISCONNECTED_AGENTS.map((agent) => ({
+      ...agent,
+      label: "not connected",
+    })),
+    ...agents.slice(0, 4).map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      color: agent.color,
+      label: agent.status === "working" ? "connected" : "not connected",
+    })),
+  ];
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+      <div className="absolute inset-0 bg-[#170d08]" />
+      <div
+        className="absolute left-1/2 top-1/2 h-[min(76vw,76vh)] w-[min(112vw,112vh)] -translate-x-1/2 -translate-y-[44%]"
+        style={{
+          transformStyle: "preserve-3d",
+        }}
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-[62%] w-[70%] -translate-x-1/2 -translate-y-[32%] rotate-45 border border-[#7b4a28]/80 bg-[#8a5531] shadow-[0_32px_90px_rgba(0,0,0,0.5)]"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(255,231,173,0.36) 1px, transparent 1px), linear-gradient(0deg, rgba(68,37,22,0.55) 1px, transparent 1px), linear-gradient(135deg, #efb15f 0 24%, #d88952 24% 26%, #e9c888 26% 49%, #9cc9b4 49% 51%, #c77955 51% 74%, #e6bd78 74% 100%)",
+            backgroundSize: "64px 64px, 64px 64px, 128px 128px",
+          }}
+        />
+        <div className="absolute left-[17%] top-[12%] h-[31%] w-[62%] skew-x-[-35deg] border border-[#7b3826] bg-[#c87555] shadow-[0_14px_40px_rgba(0,0,0,0.42)]">
+          <div className="absolute inset-x-0 bottom-0 h-4 bg-[#4a261f]" />
+          {[18, 36, 58, 78].map((left, index) => (
+            <div
+              key={`hotel-window-north-${index}`}
+              className="absolute top-[28%] h-[33%] w-[10%] border-2 border-[#5b3229] bg-[#8fd3e8] shadow-[inset_8px_0_rgba(255,255,255,0.28)]"
+              style={{ left: `${left}%` }}
+            />
+          ))}
+          <div className="absolute left-1/2 top-[14%] h-8 w-40 -translate-x-1/2 border border-[#4b2618] bg-[#f5c84b] shadow-[0_4px_0_#7c2d12]" />
+        </div>
+        <div className="absolute left-[13%] top-[17%] h-[53%] w-[18%] skew-y-[-35deg] border border-[#7b3826] bg-[#b85f4e] shadow-[0_14px_40px_rgba(0,0,0,0.4)]">
+          <div className="absolute inset-y-0 right-0 w-4 bg-[#4a261f]" />
+          {[20, 44, 68].map((top, index) => (
+            <div
+              key={`hotel-window-west-${index}`}
+              className="absolute left-[28%] h-[12%] w-[38%] border-2 border-[#5b3229] bg-[#77bdd6] shadow-[inset_6px_0_rgba(255,255,255,0.28)]"
+              style={{ top: `${top}%` }}
+            />
+          ))}
+        </div>
+        <div className="absolute left-[49%] top-[43%] h-[10%] w-[14%] rotate-45 border border-[#5a3320] bg-[#5d3b25] shadow-[8px_12px_0_rgba(0,0,0,0.22)]" />
+        <div className="absolute left-[57%] top-[34%] h-[8%] w-[11%] rotate-45 border border-[#5a3320] bg-[#3f6f67] shadow-[8px_12px_0_rgba(0,0,0,0.22)]" />
+        <div className="absolute left-[39%] top-[55%] h-[8%] w-[18%] rotate-45 border border-[#5a3320] bg-[#8e5538] shadow-[8px_12px_0_rgba(0,0,0,0.22)]" />
+        <div className="absolute left-[31%] top-[37%] h-[7%] w-[9%] rotate-45 rounded-[2px] border border-[#5a3320] bg-[#ae4d72] shadow-[8px_12px_0_rgba(0,0,0,0.2)]" />
+        {visibleAgents.map((agent, index) => {
+          const left = [39, 50, 62, 44, 56, 68, 34][index] ?? 44;
+          const top = [43, 52, 42, 62, 36, 63, 55][index] ?? 48;
+          const swatch =
+            agent.color ?? PIXEL_HOTEL_SWATCHES[index % PIXEL_HOTEL_SWATCHES.length];
+          return (
+            <div
+              key={`pixel-agent-${agent.id}`}
+              className="absolute h-20 w-28"
+              style={{ left: `${left}%`, top: `${top}%` }}
+              title={`${agent.name}: ${agent.label}`}
+            >
+              <div className="absolute left-4 top-0 h-4 w-4 bg-[#f4c58a]" />
+              <div className="absolute left-[14px] top-[-5px] h-2 w-5 bg-[#2f221a]" />
+              <div
+                className="absolute left-[10px] top-4 h-5 w-7"
+                style={{ backgroundColor: swatch }}
+              />
+              <div className="absolute left-[13px] top-8 h-4 w-2 bg-[#273142]" />
+              <div className="absolute left-[29px] top-8 h-4 w-2 bg-[#273142]" />
+              <div className="absolute left-0 top-[50px] min-w-24 border border-[#3b2b1d] bg-[#10151d]/95 px-2 py-1 text-center shadow-[3px_3px_0_rgba(0,0,0,0.35)]">
+                <div className="text-[10px] font-bold uppercase leading-none tracking-[0.12em] text-[#fff4c7]">
+                  {agent.name}
+                </div>
+                <div className="mt-1 text-[8px] font-bold uppercase leading-none tracking-[0.1em] text-[#ff6961]">
+                  {agent.label}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,transparent_0,rgba(0,0,0,0.08)_45%,rgba(0,0,0,0.58)_100%)]" />
+    </div>
+  );
 }
 
 const NOOP_FURNITURE_UID_HANDLER = () => {};
@@ -5160,9 +5272,10 @@ export function RetroOffice3D({
 
   return (
     <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden">
+      {!immersiveOverlayActive ? <PixelHotelBackdrop agents={agents} /> : null}
       {/* 3D Canvas — fills everything. */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 z-0"
         style={{
           cursor: spaceDown ? (spaceDragging ? "grabbing" : "grab") : undefined,
         }}
@@ -5271,10 +5384,6 @@ export function RetroOffice3D({
             <SceneWallPictures showRemoteOffice={remoteOfficeEnabled} />
 
             {/* Environment lighting — async, wrapped in its own Suspense so floor stays visible. */}
-            <Suspense fallback={null}>
-              <Environment preset="city" />
-            </Suspense>
-
             {/* Furniture models — each loads its GLB asynchronously. */}
             <Suspense fallback={null}>
               {!editMode ? (

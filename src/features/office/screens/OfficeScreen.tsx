@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic } from "lucide-react";
 import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
 import type { OfficeAgent } from "@/features/retro-office/core/types";
@@ -953,8 +953,10 @@ type OfficeScreenProps = {
 export function OfficeScreen({
   showOpenClawConsole = true,
 }: OfficeScreenProps) {
-  const searchParams = useSearchParams();
-  const debugEnabled = searchParams.get("officeDebug") === "1";
+  const [debugEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URL(window.location.href).searchParams.get("officeDebug") === "1";
+  });
   const [settingsCoordinator] = useState(() =>
     createStudioSettingsCoordinator(),
   );

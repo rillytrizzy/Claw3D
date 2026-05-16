@@ -167,6 +167,160 @@ function OfficeFlagPole({
   );
 }
 
+function PixelHotelTileFloor({
+  centerX,
+  centerZ,
+  width,
+  height,
+  keyPrefix,
+}: {
+  centerX: number;
+  centerZ: number;
+  width: number;
+  height: number;
+  keyPrefix: string;
+}) {
+  const columns = 18;
+  const rows = 12;
+  const tileWidth = width / columns;
+  const tileHeight = height / rows;
+  const colors = ["#d6a05f", "#e9c88f", "#b87954", "#78b7a4"] as const;
+
+  return (
+    <group>
+      {Array.from({ length: columns }).map((_, column) =>
+        Array.from({ length: rows }).map((__, row) => {
+          const accent =
+            (column + row) % 7 === 0
+              ? 3
+              : (column + row) % 2 === 0
+                ? 1
+                : column % 3 === 0
+                  ? 2
+                  : 0;
+          return (
+            <mesh
+              key={`${keyPrefix}-tile-${column}-${row}`}
+              position={[
+                centerX - width / 2 + tileWidth * (column + 0.5),
+                0.006,
+                centerZ - height / 2 + tileHeight * (row + 0.5),
+              ]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              receiveShadow
+            >
+              <planeGeometry args={[tileWidth * 0.94, tileHeight * 0.94]} />
+              <meshLambertMaterial color={colors[accent]} />
+            </mesh>
+          );
+        }),
+      )}
+    </group>
+  );
+}
+
+function PixelHotelWallWindows({
+  centerX,
+  width,
+  localNorthWallZ,
+  localSouthWallZ,
+  remoteOfficeOffsetZ = 0,
+  showRemoteOffice,
+}: {
+  centerX: number;
+  width: number;
+  localNorthWallZ: number;
+  localSouthWallZ: number;
+  remoteOfficeOffsetZ?: number;
+  showRemoteOffice: boolean;
+}) {
+  const windowSlots = [-0.36, -0.18, 0.18, 0.36] as const;
+  const renderRow = (z: number, rotY: number, keyPrefix: string) =>
+    windowSlots.map((offset, index) => {
+      const x = centerX + width * offset;
+      return (
+        <group
+          key={`${keyPrefix}-window-${index}`}
+          position={[x, 0.72, z]}
+          rotation={[0, rotY, 0]}
+        >
+          <mesh>
+            <boxGeometry args={[0.72, 0.46, 0.035]} />
+            <meshStandardMaterial color="#5b3229" roughness={0.86} />
+          </mesh>
+          <mesh position={[0, 0, 0.023]}>
+            <boxGeometry args={[0.61, 0.35, 0.012]} />
+            <meshBasicMaterial color="#8fd3e8" />
+          </mesh>
+          <mesh position={[0, 0, 0.031]}>
+            <boxGeometry args={[0.032, 0.35, 0.01]} />
+            <meshBasicMaterial color="#f4e0b8" />
+          </mesh>
+          <mesh position={[0, 0, 0.032]}>
+            <boxGeometry args={[0.61, 0.028, 0.01]} />
+            <meshBasicMaterial color="#f4e0b8" />
+          </mesh>
+          <mesh position={[-0.16, 0.08, 0.034]}>
+            <boxGeometry args={[0.16, 0.08, 0.009]} />
+            <meshBasicMaterial color="#d9f6ff" transparent opacity={0.72} />
+          </mesh>
+        </group>
+      );
+    });
+
+  return (
+    <group>
+      {renderRow(localNorthWallZ + 0.072, 0, "local-north")}
+      {renderRow(localSouthWallZ - 0.072, Math.PI, "local-south")}
+      {showRemoteOffice ? (
+        <>
+          {renderRow(
+            localNorthWallZ + 0.072 + remoteOfficeOffsetZ,
+            0,
+            "remote-north",
+          )}
+          {renderRow(
+            localSouthWallZ - 0.072 + remoteOfficeOffsetZ,
+            Math.PI,
+            "remote-south",
+          )}
+        </>
+      ) : null}
+      {[
+        { key: "local-sign", z: localNorthWallZ + 0.082 },
+        ...(showRemoteOffice
+          ? [
+              {
+                key: "remote-sign",
+                z: localNorthWallZ + 0.082 + remoteOfficeOffsetZ,
+              },
+            ]
+          : []),
+      ].map((sign) => (
+        <group key={sign.key} position={[centerX, 1.04, sign.z]}>
+          <mesh>
+            <boxGeometry args={[1.72, 0.32, 0.04]} />
+            <meshStandardMaterial
+              color="#31201a"
+              emissive="#4f2f1f"
+              emissiveIntensity={0.18}
+              roughness={0.82}
+            />
+          </mesh>
+          <mesh position={[0, 0, 0.024]}>
+            <boxGeometry args={[1.48, 0.2, 0.012]} />
+            <meshBasicMaterial color="#f5c84b" />
+          </mesh>
+          <mesh position={[0, 0, 0.032]}>
+            <boxGeometry args={[1.2, 0.09, 0.008]} />
+            <meshBasicMaterial color="#7c2d12" />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 export const FloorAndWalls = memo(function FloorAndWalls({
   showRemoteOffice = true,
 }: {
@@ -242,8 +396,15 @@ export const FloorAndWalls = memo(function FloorAndWalls({
         receiveShadow
       >
         <planeGeometry args={[localOfficeWidth, localOfficeHeight, 22, 14]} />
-        <meshLambertMaterial color="#c8a97e" />
+        <meshLambertMaterial color="#8a5f45" />
       </mesh>
+      <PixelHotelTileFloor
+        centerX={localOfficeCenterX}
+        centerZ={localOfficeCenterZ}
+        width={localOfficeWidth}
+        height={localOfficeHeight}
+        keyPrefix="local-office"
+      />
 
       {showRemoteOffice ? (
         <>
@@ -253,8 +414,15 @@ export const FloorAndWalls = memo(function FloorAndWalls({
             receiveShadow
           >
             <planeGeometry args={[localOfficeWidth, localOfficeHeight, 22, 14]} />
-            <meshLambertMaterial color="#c8a97e" />
+            <meshLambertMaterial color="#8a5f45" />
           </mesh>
+          <PixelHotelTileFloor
+            centerX={localOfficeCenterX}
+            centerZ={localOfficeCenterZ + remoteOfficeOffsetZ}
+            width={localOfficeWidth}
+            height={localOfficeHeight}
+            keyPrefix="remote-office"
+          />
 
           <mesh
             position={[pathCenterX, 0.002, pathCenterZ]}
@@ -533,8 +701,8 @@ export const FloorAndWalls = memo(function FloorAndWalls({
       })}
 
       {(() => {
-        const wallColor = "#8d6e63";
-        const wallEmissive = "#4e342e";
+        const wallColor = "#c87555";
+        const wallEmissive = "#6f3528";
 
         return (
           <>
@@ -634,44 +802,53 @@ export const FloorAndWalls = memo(function FloorAndWalls({
         );
       })()}
 
+      <PixelHotelWallWindows
+        centerX={localOfficeCenterX}
+        width={localOfficeWidth}
+        localNorthWallZ={localNorthWallZ}
+        localSouthWallZ={localSouthWallZ}
+        remoteOfficeOffsetZ={remoteOfficeOffsetZ}
+        showRemoteOffice={showRemoteOffice}
+      />
+
       <mesh position={[localOfficeCenterX, 0.03, localNorthWallZ + 0.04]}>
         <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />
-        <meshLambertMaterial color="#0c0c10" />
+        <meshLambertMaterial color="#4a261f" />
       </mesh>
       {showRemoteOffice ? (
         <mesh position={[localOfficeCenterX, 0.03, localNorthWallZ + 0.04 + remoteOfficeOffsetZ]}>
           <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />
-          <meshLambertMaterial color="#0c0c10" />
+          <meshLambertMaterial color="#4a261f" />
         </mesh>
       ) : null}
       <mesh position={[localOfficeCenterX, 0.03, localSouthWallZ - 0.04]}>
         <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />
-        <meshLambertMaterial color="#0c0c10" />
+        <meshLambertMaterial color="#4a261f" />
       </mesh>
       {showRemoteOffice ? (
         <mesh position={[localOfficeCenterX, 0.03, localSouthWallZ - 0.04 + remoteOfficeOffsetZ]}>
           <boxGeometry args={[localOfficeWidth, 0.06, 0.04]} />
-          <meshLambertMaterial color="#0c0c10" />
+          <meshLambertMaterial color="#4a261f" />
         </mesh>
       ) : null}
       <mesh position={[localWestWallX + 0.04, 0.03, localOfficeCenterZ]}>
         <boxGeometry args={[0.04, 0.06, localOfficeHeight]} />
-        <meshLambertMaterial color="#0c0c10" />
+        <meshLambertMaterial color="#4a261f" />
       </mesh>
       {showRemoteOffice ? (
         <mesh position={[localWestWallX + 0.04, 0.03, localOfficeCenterZ + remoteOfficeOffsetZ]}>
           <boxGeometry args={[0.04, 0.06, localOfficeHeight]} />
-          <meshLambertMaterial color="#0c0c10" />
+          <meshLambertMaterial color="#4a261f" />
         </mesh>
       ) : null}
       <mesh position={[localEastWallX - 0.04, 0.03, localOfficeCenterZ]}>
         <boxGeometry args={[0.04, 0.06, localOfficeHeight]} />
-        <meshLambertMaterial color="#0c0c10" />
+        <meshLambertMaterial color="#4a261f" />
       </mesh>
       {showRemoteOffice ? (
         <mesh position={[localEastWallX - 0.04, 0.03, localOfficeCenterZ + remoteOfficeOffsetZ]}>
           <boxGeometry args={[0.04, 0.06, localOfficeHeight]} />
-          <meshLambertMaterial color="#0c0c10" />
+          <meshLambertMaterial color="#4a261f" />
         </mesh>
       ) : null}
     </group>
