@@ -1,5 +1,7 @@
 import type { AgentState, FocusFilter } from "@/features/agents/state/store";
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { useGovernancePolicy } from "@/lib/governance/clientPolicy";
+import { GovernanceLock } from "@/lib/governance/GovernanceLock";
 import { AgentAvatar } from "./AgentAvatar";
 import {
   NEEDS_APPROVAL_BADGE_CLASS,
@@ -35,6 +37,8 @@ export const FleetSidebar = ({
   createDisabled = false,
   createBusy = false,
 }: FleetSidebarProps) => {
+  const governancePolicy = useGovernancePolicy();
+  const effectiveCreateDisabled = createDisabled || !governancePolicy.allowAgentSpawn;
   const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const previousTopByAgentIdRef = useRef<Map<string, number>>(new Map());
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -76,15 +80,19 @@ export const FleetSidebar = ({
     >
       <div className="flex items-center justify-between gap-2 px-1">
         <p className="console-title type-page-title text-foreground">Agents ({agents.length})</p>
-        <button
-          type="button"
-          data-testid="fleet-new-agent-button"
-          className="ui-btn-primary px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
-          onClick={onCreateAgent}
-          disabled={createDisabled || createBusy}
-        >
-          {createBusy ? "Creating..." : "New agent"}
-        </button>
+        <div className="flex items-center gap-2">
+          {!governancePolicy.allowAgentSpawn && <GovernanceLock label="Requires approval: ALLOW_AGENT_SPAWN" />}
+          <button
+            type="button"
+            data-testid="fleet-new-agent-button"
+            title={!governancePolicy.allowAgentSpawn ? "Requires approval: ALLOW_AGENT_SPAWN" : undefined}
+            className="ui-btn-primary px-3 py-2 font-mono text-[12px] font-medium tracking-[0.02em] disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+            onClick={onCreateAgent}
+            disabled={effectiveCreateDisabled || createBusy}
+          >
+            {createBusy ? "Creating..." : "New agent"}
+          </button>
+        </div>
       </div>
 
       <div className="ui-segment ui-segment-fleet-filter grid-cols-3">

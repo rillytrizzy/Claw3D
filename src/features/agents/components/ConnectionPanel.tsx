@@ -1,3 +1,5 @@
+import { useGovernancePolicy } from "@/lib/governance/clientPolicy";
+import { GovernanceLock } from "@/lib/governance/GovernanceLock";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import type { StudioGatewayAdapterType } from "@/lib/studio/settings";
 import { X } from "lucide-react";
@@ -36,6 +38,7 @@ export const ConnectionPanel = ({
   onDisconnect,
   onClose,
 }: ConnectionPanelProps) => {
+  const governancePolicy = useGovernancePolicy();
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
   const tokenOptional =
@@ -175,13 +178,22 @@ export const ConnectionPanel = ({
         >
           Custom backend
         </button>
-        <button
-          className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
-          type="button"
-          onClick={applyOpenClawPreset}
-        >
-          OpenClaw backend
-        </button>
+        {governancePolicy.allowOpenClawLaunch ? (
+          <button
+            className="ui-btn-secondary px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em]"
+            type="button"
+            onClick={applyOpenClawPreset}
+          >
+            OpenClaw backend
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            <span className="ui-btn-secondary cursor-not-allowed px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em] opacity-40">
+              OpenClaw backend
+            </span>
+            <GovernanceLock label="Requires approval: ALLOW_OPENCLAW_LAUNCH" />
+          </span>
+        )}
       </div>
       {error ? (
         <p className="ui-alert-danger rounded-md px-4 py-2 text-sm">

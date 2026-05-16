@@ -16,6 +16,8 @@ import {
 import { AgentSkillsPanel } from "@/features/agents/components/AgentSkillsPanel";
 import { SystemSkillsPanel } from "@/features/agents/components/SystemSkillsPanel";
 import { AgentInspectHeader } from "@/features/agents/components/inspect/AgentInspectHeader";
+import { useGovernancePolicy } from "@/lib/governance/clientPolicy";
+import { GovernanceLock } from "@/lib/governance/GovernanceLock";
 import {
   resolveExecutionRoleFromAgent,
   resolvePresetDefaultsForRole,
@@ -270,6 +272,7 @@ export const AgentSettingsPanel = ({
   onSkillApiKeyChange = () => {},
   onSaveSkillApiKey = () => {},
 }: AgentSettingsPanelProps) => {
+  const governancePolicy = useGovernancePolicy();
   const isOpenClawRuntime = adapterType === "openclaw";
   const initialPermissionsDraft =
     permissionsDraft ?? resolvePresetDefaultsForRole(resolveExecutionRoleFromAgent(agent));
@@ -652,13 +655,17 @@ export const AgentSettingsPanel = ({
             <div className="flex items-center justify-between gap-2">
               <h3 className="sidebar-section-title">Timed automations</h3>
               {!cronLoading && !cronError && cronJobs.length > 0 ? (
-                <button
-                  className="sidebar-btn-ghost px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
-                  type="button"
-                  onClick={openCronCreate}
-                >
-                  Create
-                </button>
+                governancePolicy.allowCronCreate ? (
+                  <button
+                    className="sidebar-btn-ghost px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    onClick={openCronCreate}
+                  >
+                    Create
+                  </button>
+                ) : (
+                  <GovernanceLock />
+                )
               ) : null}
             </div>
             {cronLoading ? (
@@ -679,13 +686,17 @@ export const AgentSettingsPanel = ({
                 <div className="sidebar-copy text-[11px] text-muted-foreground/82">
                   No timed automations for this agent.
                 </div>
-                <button
-                  className="sidebar-btn-primary mt-2 w-auto min-w-[116px] self-center px-4 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
-                  type="button"
-                  onClick={openCronCreate}
-                >
-                  Create
-                </button>
+                {governancePolicy.allowCronCreate ? (
+                  <button
+                    className="sidebar-btn-primary mt-2 w-auto min-w-[116px] self-center px-4 py-2 font-mono text-[10px] font-semibold tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    onClick={openCronCreate}
+                  >
+                    Create
+                  </button>
+                ) : (
+                  <GovernanceLock className="mt-2 self-center" />
+                )}
               </div>
             ) : null}
             {!cronLoading && !cronError && cronJobs.length > 0 ? (
@@ -765,10 +776,11 @@ export const AgentSettingsPanel = ({
                           className="ui-btn-icon h-7 w-7 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                           aria-label={`Run timed automation ${job.name} now`}
+                          title={!governancePolicy.allowCronRun ? "Requires approval: ALLOW_CRON_RUN" : undefined}
                           onClick={() => {
                             void onRunCronJob(job.id);
                           }}
-                          disabled={busy}
+                          disabled={busy || !governancePolicy.allowCronRun}
                         >
                           <Play className="h-3.5 w-3.5" />
                         </button>

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useGovernancePolicy } from "@/lib/governance/clientPolicy";
+import { GovernanceLock } from "@/lib/governance/GovernanceLock";
 import type { SkillStatusReport } from "@/lib/skills/types";
 import {
   buildAgentSkillsAllowlistSet,
@@ -74,6 +76,7 @@ export const AgentSkillsPanel = ({
   onSetSkillEnabled,
   onOpenSystemSetup,
 }: AgentSkillsPanelProps) => {
+  const governancePolicy = useGovernancePolicy();
   const [skillsFilter, setSkillsFilter] = useState("");
   const [rowFilter, setRowFilter] = useState<SkillRowFilter>("all");
 
@@ -143,8 +146,11 @@ export const AgentSkillsPanel = ({
     <section className="sidebar-section" data-testid="agent-settings-skills">
       <div className="flex items-center justify-between gap-3">
         <h3 className="sidebar-section-title">Skills</h3>
-        <div className="font-mono text-[10px] text-muted-foreground">
-          {enabledCount}/{skillEntries.length}
+        <div className="flex items-center gap-2">
+          {!governancePolicy.allowSkillMutation && <GovernanceLock />}
+          <div className="font-mono text-[10px] text-muted-foreground">
+            {enabledCount}/{skillEntries.length}
+          </div>
         </div>
       </div>
       <div className="mt-2 text-[11px] text-muted-foreground">Skill access controls apply to this agent.</div>
@@ -194,7 +200,7 @@ export const AgentSkillsPanel = ({
             const statusLabel = DISPLAY_LABELS[entry.displayState];
             const statusClassName = DISPLAY_CLASSES[entry.displayState];
             const canConfigureInSystem = entry.displayState === "setup-required";
-            const switchDisabled = anySkillBusy || entry.displayState === "not-supported";
+            const switchDisabled = anySkillBusy || entry.displayState === "not-supported" || !governancePolicy.allowSkillMutation;
             return (
               <div
                 key={`${entry.skill.source}:${entry.skill.skillKey}`}
@@ -226,6 +232,7 @@ export const AgentSkillsPanel = ({
                     aria-label={`Skill ${entry.skill.name}`}
                     aria-checked={entry.allowed}
                     className={`ui-switch self-start ${entry.allowed ? "ui-switch--on" : ""}`}
+                    title={!governancePolicy.allowSkillMutation ? "Requires approval: ALLOW_SKILL_MUTATION" : undefined}
                     disabled={switchDisabled}
                     onClick={() => {
                       void onSetSkillEnabled(entry.skill.name, !entry.allowed);
