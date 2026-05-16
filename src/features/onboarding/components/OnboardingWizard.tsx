@@ -5,7 +5,7 @@
  * and content slots for each onboarding phase.  Designed to be mounted
  * at the app root and dismissed once complete or skipped.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 
 import {
@@ -100,6 +100,15 @@ export const OnboardingWizard = ({
     const prev = getPrevStep(currentStep);
     if (prev) setCurrentStep(prev);
   }, [currentStep]);
+
+  useEffect(() => {
+    if (currentStep !== "connect" || !gatewayConnected) return;
+    markComplete("connect");
+    const next = getNextStep("connect");
+    if (next) {
+      setCurrentStep(next);
+    }
+  }, [currentStep, gatewayConnected, markComplete]);
 
   const canGoNext = useMemo(() => {
     // Connect step requires gateway connection before proceeding
