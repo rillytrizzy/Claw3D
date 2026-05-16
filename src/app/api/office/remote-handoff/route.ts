@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import {
+  assertGovernanceAllowed,
+  GovernanceDeniedError,
+  governanceDeniedResponse,
+} from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
 import { NodeGatewayClient } from "@/lib/gateway/nodeGatewayClient";
 import { sendAgentHandoffViaRuntime } from "@/lib/runtime/agentMessaging";
 import { loadStudioSettings } from "@/lib/studio/settings-store";
@@ -64,6 +70,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const policy = resolveGovernancePolicy();
+    assertGovernanceAllowed(policy, "allowExternalNetwork", "remote office handoff");
+
     await gatewayClient.connect({
       gatewayUrl: remoteGatewayUrl,
       token: officePreference.remoteOfficeToken,
@@ -92,6 +101,9 @@ export async function POST(request: Request) {
       status: typeof handoffResult?.status === "string" ? handoffResult.status : null,
     });
   } catch (error) {
+    if (error instanceof GovernanceDeniedError) {
+      return NextResponse.json(governanceDeniedResponse("allowExternalNetwork"), { status: 403 });
+    }
     const message =
       error instanceof Error ? error.message : "Failed to send remote office handoff.";
     return NextResponse.json({ error: message }, { status: 500 });

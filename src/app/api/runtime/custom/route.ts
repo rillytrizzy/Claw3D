@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+import {
+  assertGovernanceAllowed,
+  GovernanceDeniedError,
+  governanceDeniedResponse,
+} from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
+
 export const runtime = "nodejs";
 
 type CustomRuntimeRequestBody = {
@@ -84,6 +91,10 @@ export async function POST(request: Request) {
     const runtimeUrl = normalizeRuntimeUrl(payload.runtimeUrl ?? "");
     const pathname = normalizePathname(payload.pathname);
     const method = normalizeMethod(payload.method);
+
+    const policy = resolveGovernancePolicy();
+    assertGovernanceAllowed(policy, "allowExternalNetwork", "external runtime proxy");
+
     // Propagate the browser abort signal so that cancelling the client-side fetch
     // (e.g. hitting Stop) also cancels the upstream runtime request.
     const response = await fetch(`${runtimeUrl}${pathname}`, {
@@ -105,6 +116,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof GovernanceDeniedError) {
+      return NextResponse.json(governanceDeniedResponse("allowExternalNetwork"), { status: 403 });
+    }
     const message = error instanceof Error ? error.message : "Custom runtime proxy failed.";
     const status =
       message === "runtimeUrl is required." ||

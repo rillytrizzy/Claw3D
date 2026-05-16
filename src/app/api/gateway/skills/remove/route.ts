@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { isLikelyLocalGatewayUrl } from "@/lib/gateway/local-gateway";
+import {
+  assertGovernanceAllowed,
+  GovernanceDeniedError,
+  governanceDeniedResponse,
+} from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
 import { removeSkillLocally } from "@/lib/skills/remove-local";
 import type { RemovableSkillSource, SkillRemoveRequest } from "@/lib/skills/types";
 import {
@@ -59,6 +65,9 @@ const normalizeRemoveRequest = (body: unknown): SkillRemoveRequest => {
 
 export async function POST(request: Request) {
   try {
+    const policy = resolveGovernancePolicy();
+    assertGovernanceAllowed(policy, "allowSkillMutation", "skill remove");
+
     const body = (await request.json()) as unknown;
     const removeRequest = normalizeRemoveRequest(body);
 
@@ -69,6 +78,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result });
   } catch (err) {
+    if (err instanceof GovernanceDeniedError) {
+      return NextResponse.json(governanceDeniedResponse("allowSkillMutation"), { status: 403 });
+    }
     const message = err instanceof Error ? err.message : "Failed to remove skill.";
     const status =
       message.includes("required") ||
