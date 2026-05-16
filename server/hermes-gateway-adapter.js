@@ -69,6 +69,26 @@ const MAIN_SESSION_KEY = `agent:${AGENT_ID}:${MAIN_KEY}`;
 const CONFIG_PATH = `${HOME}/.hermes/config.json`;
 const MAX_TOOL_ROUNDS = 8;
 
+function parseGovernanceBool(value, defaultValue) {
+  if (value === undefined || value === "") return defaultValue;
+  return value === "true" || value === "1";
+}
+
+function resolveGovernancePolicy(env = process.env) {
+  const mode = env.CLAW3D_GOVERNANCE_MODE === "standard" ? "standard" : "read_only";
+  const allow = mode !== "read_only";
+  return {
+    mode,
+    allowAgentSpawn: parseGovernanceBool(env.ALLOW_AGENT_SPAWN, allow),
+  };
+}
+
+function assertGovernanceAllowed(policy, flag, label) {
+  if (policy[flag] !== true) {
+    throw new Error(`Governance policy denies "${label}" (${flag}).`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Orchestrator system prompt
 // ---------------------------------------------------------------------------
@@ -565,6 +585,8 @@ function broadcastEvent(frame) {
 // ---------------------------------------------------------------------------
 
 async function execSpawnAgent(args) {
+  assertGovernanceAllowed(resolveGovernancePolicy(), "allowAgentSpawn", "gateway spawn agent");
+
   const name = (typeof args.name === "string" ? args.name : "Agent").trim() || "Agent";
   const role = (typeof args.role === "string" ? args.role : "").trim();
   const instructions = typeof args.instructions === "string" ? args.instructions.trim() : "";
@@ -841,6 +863,8 @@ async function handleMethod(method, params, id, sendEvent) {
     }
 
     case "agents.create": {
+      assertGovernanceAllowed(resolveGovernancePolicy(), "allowAgentSpawn", "gateway spawn agent");
+
       const agentName = (typeof p.name === "string" && p.name.trim()) ? p.name.trim() : "Agent";
       const slug = agentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const newId = `${slug}-${randomId().slice(0, 6)}`;

@@ -3,6 +3,8 @@ import {
   removeGatewayAgentFromConfigOnly,
   updateGatewayAgentOverrides,
 } from "@/lib/gateway/agentConfig";
+import { assertGovernanceAllowed } from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
 import type { SkillRemoveRequest, SkillRemoveResult } from "@/lib/skills/types";
 
 const normalizeRequired = (value: string, field: string): string => {
@@ -66,6 +68,9 @@ export const removeSkillViaGatewayAgent = async (params: {
   client: GatewayClient;
   request: SkillRemoveRequest;
 }): Promise<SkillRemoveResult> => {
+  const policy = resolveGovernancePolicy();
+  assertGovernanceAllowed(policy, "allowAgentSpawn", "skill remover agent spawn");
+
   const skillKey = normalizeRequired(params.request.skillKey, "skillKey");
   const source = params.request.source;
   const baseDir = normalizeRequired(params.request.baseDir, "baseDir");

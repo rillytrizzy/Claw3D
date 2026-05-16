@@ -1,4 +1,6 @@
 import { GatewayResponseError, type GatewayClient } from "@/lib/gateway/GatewayClient";
+import { assertGovernanceAllowed } from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
 
 export type AgentHeartbeatActiveHours = {
   start: string;
@@ -377,6 +379,9 @@ export const createGatewayAgent = async (params: {
   client: GatewayClient;
   name: string;
 }): Promise<ConfigAgentEntry> => {
+  const policy = resolveGovernancePolicy();
+  assertGovernanceAllowed(policy, "allowAgentSpawn", "gateway agent create");
+
   const trimmed = params.name.trim();
   if (!trimmed) {
     throw new Error("Agent name is required.");
