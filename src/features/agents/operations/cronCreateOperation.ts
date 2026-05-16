@@ -1,4 +1,9 @@
 import {
+  assertGovernanceAllowed,
+  GovernanceDeniedError,
+} from "@/lib/governance/serverGuard";
+import { resolveGovernancePolicy } from "@/lib/governance/policy";
+import {
   buildCronJobCreateInput,
   type CronCreateDraft,
 } from "@/lib/cron/createPayloadBuilder";
@@ -64,6 +69,17 @@ export const performCronCreateFlow = async (params: {
   } catch (error) {
     const message = resolveCreateErrorMessage(error);
     params.onError(message);
+    throw error;
+  }
+
+  try {
+    const policy = resolveGovernancePolicy();
+    assertGovernanceAllowed(policy, "allowCronCreate", "cron create");
+  } catch (error) {
+    if (error instanceof GovernanceDeniedError) {
+      params.onError(error.message);
+      throw error;
+    }
     throw error;
   }
 
