@@ -7356,79 +7356,92 @@ export function RetroOffice3D({
 
       {!immersiveOverlayActive ? (
         <>
-          {/* Ideas 3 + 6 + 8: Mini status bar — bottom left. */}
-          <div className="absolute bottom-3 left-3 flex flex-col items-start gap-1.5 z-10 pointer-events-none select-none">
-            {/* Idea 3: Activity feed entries — newest on bottom. */}
+          {/* Bottom command dock — live gateway + agent status. */}
+          <div className="absolute bottom-3 left-3 z-10 flex max-w-[min(34rem,calc(100%-1.5rem))] flex-col items-start gap-2 select-none pointer-events-none">
             {statusFeedEvents
               .slice(0, 4)
               .reverse()
               .map((ev) => (
                 <div
                   key={`${ev.id}-${ev.ts}`}
-                  className="flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1 text-[10px] font-mono"
+                  className="pointer-events-none flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-[10px] font-mono backdrop-blur-sm"
                 >
-                  <span className="text-amber-400/80 font-semibold">{ev.name}</span>
+                  <span className="font-semibold text-amber-400/80">{ev.name}</span>
                   <span className="text-amber-600/70">{ev.text}</span>
                 </div>
               ))}
-            {/* Ideas 6 + 8: Gateway status, agent counts, vibe score. */}
-            <div className="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1 text-[10px] font-mono">
-              <span className="text-amber-500/60">
-                {agents.filter((a) => a.status === "working").length} working
-              </span>
-              <span className="opacity-30">·</span>
-              <span className="text-amber-500/60">
-                {agents.filter((a) => a.status === "idle").length} idle
-              </span>
-              <span className="opacity-30">·</span>
-              <span className="text-amber-500/60">
-                {agents.filter((a) => a.status === "error").length} error
-              </span>
-              {/* New Idea 6: Vibe score with animated EQ bars. */}
-              {(() => {
-                const workingCount = agents.filter(
-                  (a) => a.status === "working",
-                ).length;
-                const ratio = workingCount / Math.max(agents.length, 1);
-                const label =
-                  ratio < 0.2 ? "quiet" : ratio < 0.6 ? "active" : "buzzing";
-                const animDur = ratio < 0.2 ? "1.8s" : ratio < 0.6 ? "1s" : "0.5s";
-                return (
-                  <>
-                    <span className="opacity-30">·</span>
-                    <span
-                      className="flex items-end gap-px h-3"
-                      style={{ ["--eq-dur" as string]: animDur }}
-                    >
-                      {[0.6, 1, 0.7].map((h, i) => (
-                        <span
-                          key={i}
-                          className="w-[3px] bg-amber-500/60 rounded-sm"
-                          style={{
-                            height: `${h * 100}%`,
-                            animation: `eq-bar ${animDur} ${i * 0.15}s infinite ease-in-out alternate`,
-                          }}
-                        />
-                      ))}
-                    </span>
-                    <span className="text-amber-500/50">{label}</span>
-                  </>
-                );
-              })()}
-              {!editMode && !spaceDown && (
-                <>
-                  <span className="opacity-30">·</span>
-                  <span className="text-amber-400/40">
-                    drag · scroll · space+drag · dbl-click
-                  </span>
-                </>
-              )}
-              {spaceDown && (
-                <>
-                  <span className="opacity-30">·</span>
-                  <span className="text-amber-300/80">pan mode</span>
-                </>
-              )}
+
+            <div className="pointer-events-auto w-full rounded-2xl border border-amber-800/35 bg-black/70 px-3 py-2 text-[11px] font-mono text-amber-100 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+              <div className="flex items-center gap-3">
+                <span className="text-amber-300/90">{liveStatusDeck.gatewayLabel}</span>
+                <span className="text-amber-500/70">{liveStatusDeck.counts.working} working</span>
+                <span className="text-amber-500/70">{liveStatusDeck.counts.idle} idle</span>
+                <span className="text-amber-500/70">{liveStatusDeck.counts.error} error</span>
+                <span className="truncate text-amber-200/55">
+                  {liveStatusDeck.latestEvent
+                    ? `${liveStatusDeck.latestEvent.name}: ${liveStatusDeck.latestEvent.text}`
+                    : "No recent live signals"}
+                </span>
+              </div>
+
+              {liveStatusDeck.selectedAgent ? (
+                <div className="mt-2 flex items-center gap-2 border-t border-amber-900/40 pt-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-amber-100">
+                        {liveStatusDeck.selectedAgent.name}
+                      </span>
+                      <span className="rounded-full border border-amber-700/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-amber-300/80">
+                        {liveStatusDeck.selectedAgent.visibleStatus}
+                      </span>
+                      {liveStatusDeck.selectedAgent.isAttentionMarked ? (
+                        <span className="text-rose-300/80">attention</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-[10px] text-amber-200/60">
+                      {liveStatusDeck.selectedAgent.sceneState ?? "unknown posture"}
+                      {" - "}
+                      {liveStatusDeck.selectedAgent.lastSignalText ?? "No recent agent signal"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeckAgentId(liveStatusDeck.selectedAgent!.id)}
+                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                  >
+                    Inspect
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeckFocus}
+                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                  >
+                    Focus
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeckFollow}
+                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                  >
+                    {liveStatusDeck.selectedAgent.isFollowed ? "Unfollow" : "Follow"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeckPing}
+                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                  >
+                    {liveStatusDeck.selectedAgent.isPingActive ? "Pinging" : "Ping"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeckAttention}
+                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                  >
+                    {liveStatusDeck.selectedAgent.isAttentionMarked ? "Clear attention" : "Attention"}
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </>
