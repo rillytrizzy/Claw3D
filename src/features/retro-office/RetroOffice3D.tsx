@@ -226,6 +226,12 @@ import {
   TrailSystem as AgentTrailSystem,
 } from "@/features/retro-office/systems/visualSystems";
 import type { OfficeCleaningCue } from "@/lib/office/janitorReset";
+import {
+  buildLiveStatusDeckSummary,
+  createAttentionSet,
+  pruneLiveStatusDeckState,
+  toggleAttentionAgent,
+} from "@/features/retro-office/liveStatusDeck";
 
 configureTextBuilder({
   defaultFontURL: "/api/local-font/default",
@@ -2774,6 +2780,13 @@ export function RetroOffice3D({
   // Follow cam: which agent to trail with a third-person perspective camera.
   const [followAgentId, setFollowAgentId] = useState<string | null>(null);
   const followAgentIdRef = useRef<string | null>(null);
+  // Live status dock state.
+  const [deckAgentId, setDeckAgentId] = useState<string | null>(null);
+  const [pingAgentId, setPingAgentId] = useState<string | null>(null);
+  const [pingExpiresAt, setPingExpiresAt] = useState<number | null>(null);
+  const [attentionAgentIds, setAttentionAgentIds] = useState<Set<string>>(
+    () => createAttentionSet(),
+  );
   const prevMonitorAgentIdRef = useRef<string | null>(null);
   const prevAtmUidRef = useRef<string | null>(null);
   const prevKanbanUidRef = useRef<string | null>(null);
@@ -2861,6 +2874,37 @@ export function RetroOffice3D({
   useEffect(() => {
     followAgentIdRef.current = followAgentId;
   }, [followAgentId]);
+
+  useEffect(() => {
+    const next = pruneLiveStatusDeckState({
+      agents,
+      selectedAgentId: deckAgentId,
+      pingAgentId,
+      pingExpiresAt,
+      attentionAgentIds,
+      nowMs: Date.now(),
+    });
+    if (next.selectedAgentId !== deckAgentId) setDeckAgentId(next.selectedAgentId);
+    if (next.pingAgentId !== pingAgentId) setPingAgentId(next.pingAgentId);
+    if (next.pingExpiresAt !== pingExpiresAt) setPingExpiresAt(next.pingExpiresAt);
+    if (next.attentionAgentIds !== attentionAgentIds) setAttentionAgentIds(next.attentionAgentIds);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents]);
+
+  useEffect(() => {
+    if (!pingAgentId || !pingExpiresAt) return;
+    const delay = pingExpiresAt - Date.now();
+    if (delay <= 0) {
+      setPingAgentId(null);
+      setPingExpiresAt(null);
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setPingAgentId(null);
+      setPingExpiresAt(null);
+    }, delay);
+    return () => window.clearTimeout(timeoutId);
+  }, [pingAgentId, pingExpiresAt]);
 
   // Derive per-agent colors from the agents prop (stable, no state needed).
   const agentColorMap = useMemo(
@@ -3014,6 +3058,34 @@ export function RetroOffice3D({
       ),
     [agents, renderAgentUiById],
   );
+  const liveStatusDeck = useMemo(
+    () =>
+      buildLiveStatusDeckSummary({
+        agents,
+        renderAgentUiById,
+        statusFeedEvents,
+        gatewayStatus,
+        selectedAgentId: deckAgentId,
+        followAgentId,
+        spotlightAgentId,
+        attentionAgentIds,
+        pingAgentId,
+        pingExpiresAt,
+        nowMs: Date.now(),
+      }),
+    [
+      agents,
+      attentionAgentIds,
+      deckAgentId,
+      followAgentId,
+      gatewayStatus,
+      pingAgentId,
+      pingExpiresAt,
+      renderAgentUiById,
+      spotlightAgentId,
+      statusFeedEvents,
+    ],
+  );
   const hoveredAgent = useMemo(
     () =>
       hoveredAgentId
@@ -3030,6 +3102,24 @@ export function RetroOffice3D({
   const handleAgentUnhover = useCallback(() => {
     setHoveredAgentId(null);
   }, []);
+  const handleDeckFocus = useCallback(() => {
+    if (!deckAgentId) return;
+    setSpotlightAgentId(deckAgentId);
+  }, [deckAgentId]);
+  const handleDeckFollow = useCallback(() => {
+    if (!deckAgentId) return;
+    setFollowAgentId((current) => (current === deckAgentId ? null : deckAgentId));
+  }, [deckAgentId]);
+  const handleDeckPing = useCallback(() => {
+    if (!deckAgentId) return;
+    setPingAgentId(deckAgentId);
+    setPingExpiresAt(Date.now() + 2_500);
+    setSpotlightAgentId(deckAgentId);
+  }, [deckAgentId]);
+  const handleDeckAttention = useCallback(() => {
+    if (!deckAgentId) return;
+    setAttentionAgentIds((current) => toggleAttentionAgent(current, deckAgentId));
+  }, [deckAgentId]);
   const handleAgentClick = useCallback(
     (agentId: string) => {
       const agent = renderAgentLookupRef.current.get(agentId);
@@ -3037,6 +3127,7 @@ export function RetroOffice3D({
       const [wx, , wz] = toWorld(agent.x, agent.y);
       orbitRef.current.target.set(wx, 0, wz);
       orbitRef.current.update();
+      setDeckAgentId(agentId);
       onAgentChatSelect?.(agentId);
     },
     [onAgentChatSelect, renderAgentLookupRef],
