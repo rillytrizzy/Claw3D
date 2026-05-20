@@ -24,13 +24,18 @@ const normalizeActionLifecycle = (value: unknown): WorkspaceActionLifecycle =>
     ? (value as WorkspaceActionLifecycle)
     : "queued";
 
+const getLifecycleRank = (value: WorkspaceActionLifecycle): number =>
+  LIFECYCLE_ORDER.indexOf(value);
+
 export const reduceActionLifecycle = (
   current: WorkspaceActionLifecycle,
   next: string,
-): WorkspaceActionLifecycle =>
-  LIFECYCLE_ORDER.includes(next as WorkspaceActionLifecycle)
-    ? (next as WorkspaceActionLifecycle)
+): WorkspaceActionLifecycle => {
+  const nextLifecycle = normalizeActionLifecycle(next);
+  return getLifecycleRank(nextLifecycle) > getLifecycleRank(current)
+    ? nextLifecycle
     : current;
+};
 
 export const createDefaultWorkspaceContract = (
   workspaceId: string,
@@ -73,10 +78,25 @@ export const normalizeWorkspaceContract = (value: unknown): WorkspaceContract =>
     broker: { ...base.broker, ...(input.broker ?? {}) },
     agents: Array.isArray(input.agents) ? input.agents : [],
     actions: Array.isArray(input.actions)
-      ? input.actions.map((action) => ({
-          ...action,
-          lifecycle: normalizeActionLifecycle(action.lifecycle),
-        }))
+      ? input.actions.flatMap((action) => {
+          if (!isRecord(action)) return [];
+          return [
+            {
+              id: asString(action.id).trim() || "action",
+              agentId: asString(action.agentId).trim() || "unknown",
+              type: asString(action.type).trim() || "unknown",
+              target: asString(action.target).trim() || "unknown",
+              lifecycle: normalizeActionLifecycle(action.lifecycle),
+              createdAt:
+                asString(action.createdAt).trim() || base.workspace.updatedAt,
+              updatedAt:
+                asString(action.updatedAt).trim() || base.workspace.updatedAt,
+              executor: asString(action.executor).trim() || null,
+              resultSummary: asString(action.resultSummary).trim() || null,
+              errorSummary: asString(action.errorSummary).trim() || null,
+            },
+          ];
+        })
       : [],
     sessions: Array.isArray(input.sessions) ? input.sessions : [],
     terminal: {

@@ -17,18 +17,23 @@ describe("workspace contract schema", () => {
     expect(contract.scene.focusAgentId).toBeNull();
   });
 
-  it("normalizes unknown lifecycle states back to queued", () => {
+  it("ignores malformed action entries and normalizes unknown lifecycle states back to queued", () => {
     const contract = normalizeWorkspaceContract({
       workspace: { id: "primary" },
-      actions: [{ id: "a1", agentId: "alpha", lifecycle: "weird-state" }],
+      actions: [
+        null,
+        { id: "a1", agentId: "alpha", lifecycle: "weird-state" },
+      ],
     });
 
+    expect(contract.actions).toHaveLength(1);
     expect(contract.actions[0]?.lifecycle).toBe("queued");
   });
 
-  it("reduces hybrid lifecycle transitions deterministically", () => {
+  it("reduces hybrid lifecycle transitions deterministically without regressing", () => {
     expect(reduceActionLifecycle("queued", "routing")).toBe("routing");
     expect(reduceActionLifecycle("routing", "running")).toBe("running");
     expect(reduceActionLifecycle("running", "succeeded")).toBe("succeeded");
+    expect(reduceActionLifecycle("succeeded", "running")).toBe("succeeded");
   });
 });
