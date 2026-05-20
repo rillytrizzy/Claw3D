@@ -22,12 +22,33 @@ describe("workspace contract schema", () => {
       workspace: { id: "primary" },
       actions: [
         null,
-        { id: "a1", agentId: "alpha", lifecycle: "weird-state" },
+        {
+          id: "a1",
+          agentId: "alpha",
+          type: "dispatch",
+          target: "workspace",
+          lifecycle: "weird-state",
+        },
       ],
     });
 
     expect(contract.actions).toHaveLength(1);
     expect(contract.actions[0]?.lifecycle).toBe("queued");
+  });
+
+  it("excludes incomplete object-shaped action entries", () => {
+    const contract = normalizeWorkspaceContract({
+      workspace: { id: "primary" },
+      actions: [
+        {
+          id: "a1",
+          agentId: "alpha",
+          lifecycle: "running",
+        },
+      ],
+    });
+
+    expect(contract.actions).toEqual([]);
   });
 
   it("reduces hybrid lifecycle transitions deterministically without regressing", () => {

@@ -27,6 +27,32 @@ const normalizeActionLifecycle = (value: unknown): WorkspaceActionLifecycle =>
 const getLifecycleRank = (value: WorkspaceActionLifecycle): number =>
   LIFECYCLE_ORDER.indexOf(value);
 
+const normalizeWorkspaceAction = (
+  value: unknown,
+  fallbackUpdatedAt: string,
+): NonNullable<WorkspaceContract["actions"][number]> | null => {
+  if (!isRecord(value)) return null;
+
+  const id = asString(value.id).trim();
+  const agentId = asString(value.agentId).trim();
+  const type = asString(value.type).trim();
+  const target = asString(value.target).trim();
+  if (!id || !agentId || !type || !target) return null;
+
+  return {
+    id,
+    agentId,
+    type,
+    target,
+    lifecycle: normalizeActionLifecycle(value.lifecycle),
+    createdAt: asString(value.createdAt).trim() || fallbackUpdatedAt,
+    updatedAt: asString(value.updatedAt).trim() || fallbackUpdatedAt,
+    executor: asString(value.executor).trim() || null,
+    resultSummary: asString(value.resultSummary).trim() || null,
+    errorSummary: asString(value.errorSummary).trim() || null,
+  };
+};
+
 export const reduceActionLifecycle = (
   current: WorkspaceActionLifecycle,
   next: string,
@@ -79,23 +105,11 @@ export const normalizeWorkspaceContract = (value: unknown): WorkspaceContract =>
     agents: Array.isArray(input.agents) ? input.agents : [],
     actions: Array.isArray(input.actions)
       ? input.actions.flatMap((action) => {
-          if (!isRecord(action)) return [];
-          return [
-            {
-              id: asString(action.id).trim() || "action",
-              agentId: asString(action.agentId).trim() || "unknown",
-              type: asString(action.type).trim() || "unknown",
-              target: asString(action.target).trim() || "unknown",
-              lifecycle: normalizeActionLifecycle(action.lifecycle),
-              createdAt:
-                asString(action.createdAt).trim() || base.workspace.updatedAt,
-              updatedAt:
-                asString(action.updatedAt).trim() || base.workspace.updatedAt,
-              executor: asString(action.executor).trim() || null,
-              resultSummary: asString(action.resultSummary).trim() || null,
-              errorSummary: asString(action.errorSummary).trim() || null,
-            },
-          ];
+          const normalized = normalizeWorkspaceAction(
+            action,
+            base.workspace.updatedAt,
+          );
+          return normalized ? [normalized] : [];
         })
       : [],
     sessions: Array.isArray(input.sessions) ? input.sessions : [],
