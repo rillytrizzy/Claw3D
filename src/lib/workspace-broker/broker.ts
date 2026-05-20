@@ -153,14 +153,14 @@ export const createWorkspaceBroker = ({
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "unknown broker failure";
-        mutateAction(action.id, (current) => ({
-          ...current,
-          lifecycle: "failed",
-          errorSummary: message,
-          updatedAt: new Date().toISOString(),
-        }));
         snapshot = {
           ...snapshot,
+          actions: replaceAction(snapshot.actions, action.id, (current) => ({
+            ...current,
+            lifecycle: "failed",
+            errorSummary: message,
+            updatedAt: new Date().toISOString(),
+          })),
           broker: {
             ...snapshot.broker,
             status: "degraded",
