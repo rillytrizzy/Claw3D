@@ -65,6 +65,51 @@ describe("workspace broker", () => {
     });
   });
 
+  it("keeps runAction successful when a snapshot subscriber throws", async () => {
+    workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-broker-"));
+    const broker = createWorkspaceBroker({ workspaceRoot });
+    const listener = vi.fn(() => {
+      throw new Error("listener exploded");
+    });
+
+    broker.subscribe(listener);
+
+    const action = await broker.runAction({
+      agentId: "agent-terminal",
+      type: "open-terminal",
+      target: "docs",
+      adapter: "terminal",
+    });
+
+    expect(listener).toHaveBeenCalled();
+    expect(action.lifecycle).toBe("running");
+    expect(action.executor).toBe("terminal");
+    expect(broker.getSnapshot().broker.status).toBe("ready");
+    expect(loadWorkspaceContract({ workspaceRoot }).actions[0]).toMatchObject({
+      id: "action-1",
+      lifecycle: "running",
+      executor: "terminal",
+    });
+  });
+
+  it("does not call an unsubscribed snapshot listener", async () => {
+    workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-broker-"));
+    const broker = createWorkspaceBroker({ workspaceRoot });
+    const listener = vi.fn();
+
+    const unsubscribe = broker.subscribe(listener);
+    unsubscribe();
+
+    await broker.runAction({
+      agentId: "agent-terminal",
+      type: "open-terminal",
+      target: "docs",
+      adapter: "terminal",
+    });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it("degrades broker state and records the error when the n8n adapter throws", async () => {
     workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-broker-"));
     const error = new Error("n8n offline");

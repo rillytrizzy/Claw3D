@@ -7,7 +7,14 @@ export const createWorkspaceEventBus = () => {
 
   return {
     publish(snapshot: WorkspaceContract) {
-      listeners.forEach((listener) => listener(snapshot));
+      const currentListeners = Array.from(listeners);
+      currentListeners.forEach((listener) => {
+        try {
+          listener(snapshot);
+        } catch {
+          // Listener failures must not affect broker persistence or lifecycle.
+        }
+      });
     },
     subscribe(listener: WorkspaceBrokerSnapshotListener) {
       listeners.add(listener);
