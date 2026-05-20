@@ -27,6 +27,12 @@ const normalizeActionLifecycle = (value: unknown): WorkspaceActionLifecycle =>
 const getLifecycleRank = (value: WorkspaceActionLifecycle): number =>
   LIFECYCLE_ORDER.indexOf(value);
 
+const TERMINAL_LIFECYCLES: ReadonlySet<WorkspaceActionLifecycle> = new Set([
+  "succeeded",
+  "failed",
+  "cancelled",
+]);
+
 const normalizeWorkspaceAction = (
   value: unknown,
   fallbackUpdatedAt: string,
@@ -57,6 +63,9 @@ export const reduceActionLifecycle = (
   current: WorkspaceActionLifecycle,
   next: string,
 ): WorkspaceActionLifecycle => {
+  if (TERMINAL_LIFECYCLES.has(current)) {
+    return current;
+  }
   const nextLifecycle = normalizeActionLifecycle(next);
   return getLifecycleRank(nextLifecycle) > getLifecycleRank(current)
     ? nextLifecycle

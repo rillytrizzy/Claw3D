@@ -57,4 +57,9 @@ describe("workspace contract schema", () => {
     expect(reduceActionLifecycle("running", "succeeded")).toBe("succeeded");
     expect(reduceActionLifecycle("succeeded", "running")).toBe("succeeded");
   });
+
+  it("keeps terminal lifecycles sticky across later updates", () => {
+    expect(reduceActionLifecycle("succeeded", "failed")).toBe("succeeded");
+    expect(reduceActionLifecycle("failed", "cancelled")).toBe("failed");
+  });
 });
