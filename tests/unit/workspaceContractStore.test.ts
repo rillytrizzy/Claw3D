@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,6 +14,7 @@ describe("workspace contract store", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "workspace-contract-"));
 
   afterEach(() => {
+    vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -64,6 +65,15 @@ describe("workspace contract store", () => {
 
     expect(loaded.workspace.id).toBe("primary");
     expect(loaded.broker.status).toBe("idle");
+  });
+
+  it("surfaces real read failures instead of defaulting", () => {
+    const error = Object.assign(new Error("permission denied"), { code: "EACCES" });
+    vi.spyOn(fs, "readFileSync").mockImplementation(() => {
+      throw error;
+    });
+
+    expect(() => loadWorkspaceContract({ workspaceRoot: tempDir })).toThrowError(error);
   });
 
   it("appends broker events as jsonl entries", () => {

@@ -9,20 +9,33 @@ import {
   resolveWorkspaceEventsPath,
 } from "@/lib/workspace-contract/paths";
 
+const isWorkspaceContractFallbackError = (error: unknown): boolean => {
+  if (error instanceof SyntaxError) {
+    return true;
+  }
+
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "ENOENT",
+  );
+};
+
 export const loadWorkspaceContract = ({
   workspaceRoot,
 }: {
   workspaceRoot: string;
 }): WorkspaceContract => {
   const contractPath = resolveWorkspaceContractPath(workspaceRoot);
-  if (!fs.existsSync(contractPath)) {
-    return createDefaultWorkspaceContract("primary");
-  }
-
   try {
     return normalizeWorkspaceContract(JSON.parse(fs.readFileSync(contractPath, "utf8")));
-  } catch {
-    return createDefaultWorkspaceContract("primary");
+  } catch (error) {
+    if (isWorkspaceContractFallbackError(error)) {
+      return createDefaultWorkspaceContract("primary");
+    }
+
+    throw error;
   }
 };
 
