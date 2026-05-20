@@ -45,6 +45,27 @@ describe("workspace contract store", () => {
     expect(loaded.broker.status).toBe("ready");
   });
 
+  it("loads a default contract when the file is missing", () => {
+    const loaded = loadWorkspaceContract({ workspaceRoot: tempDir });
+
+    expect(loaded.workspace.id).toBe("primary");
+    expect(loaded.broker.status).toBe("idle");
+  });
+
+  it("falls back to a default contract for malformed content", () => {
+    fs.mkdirSync(path.join(tempDir, ".claw3d-workspace"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, ".claw3d-workspace", "workspace-contract.json"),
+      "{",
+      "utf8",
+    );
+
+    const loaded = loadWorkspaceContract({ workspaceRoot: tempDir });
+
+    expect(loaded.workspace.id).toBe("primary");
+    expect(loaded.broker.status).toBe("idle");
+  });
+
   it("appends broker events as jsonl entries", () => {
     const event = appendWorkspaceEvent({
       workspaceRoot: tempDir,

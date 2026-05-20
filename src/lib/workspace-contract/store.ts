@@ -5,6 +5,7 @@ import type { WorkspaceContract } from "@/lib/workspace-contract/types";
 import {
   ensureWorkspaceDataDir,
   resolveWorkspaceContractPath,
+  resolveWorkspaceContractTempPath,
   resolveWorkspaceEventsPath,
 } from "@/lib/workspace-contract/paths";
 
@@ -18,7 +19,11 @@ export const loadWorkspaceContract = ({
     return createDefaultWorkspaceContract("primary");
   }
 
-  return normalizeWorkspaceContract(JSON.parse(fs.readFileSync(contractPath, "utf8")));
+  try {
+    return normalizeWorkspaceContract(JSON.parse(fs.readFileSync(contractPath, "utf8")));
+  } catch {
+    return createDefaultWorkspaceContract("primary");
+  }
 };
 
 export const saveWorkspaceContract = ({
@@ -33,12 +38,14 @@ export const saveWorkspaceContract = ({
     ...contract,
     workspace: { ...contract.workspace, updatedAt: new Date().toISOString() },
   });
-
-  fs.writeFileSync(
-    resolveWorkspaceContractPath(workspaceRoot),
-    JSON.stringify(nextContract, null, 2),
-    "utf8",
+  const contractPath = resolveWorkspaceContractPath(workspaceRoot);
+  const tempPath = resolveWorkspaceContractTempPath(
+    workspaceRoot,
+    `${process.pid}-${Date.now()}`,
   );
+
+  fs.writeFileSync(tempPath, JSON.stringify(nextContract, null, 2), "utf8");
+  fs.renameSync(tempPath, contractPath);
   return nextContract;
 };
 
