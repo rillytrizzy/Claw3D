@@ -1,10 +1,7 @@
-import { createWorkspaceBroker } from "@/lib/workspace-broker/broker";
+import { getWorkspaceBroker } from "@/app/api/workspace/broker";
 import type { WorkspaceContract } from "@/lib/workspace-contract/types";
 
 export const runtime = "nodejs";
-
-const getWorkspaceBroker = () =>
-  createWorkspaceBroker({ workspaceRoot: process.cwd() });
 
 const encodeSnapshot = (
   encoder: TextEncoder,

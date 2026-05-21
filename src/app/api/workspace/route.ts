@@ -1,9 +1,6 @@
-import { createWorkspaceBroker } from "@/lib/workspace-broker/broker";
+import { getWorkspaceBroker } from "@/app/api/workspace/broker";
 
 export const runtime = "nodejs";
-
-const getWorkspaceBroker = () =>
-  createWorkspaceBroker({ workspaceRoot: process.cwd() });
 
 export async function GET() {
   return Response.json(getWorkspaceBroker().getSnapshot(), {

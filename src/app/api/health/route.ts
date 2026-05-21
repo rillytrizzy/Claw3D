@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { createWorkspaceBroker } from "@/lib/workspace-broker/broker";
+import { getWorkspaceBroker } from "@/app/api/workspace/broker";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const snapshot = createWorkspaceBroker({
-    workspaceRoot: process.cwd(),
-  }).getSnapshot();
+  const snapshot = getWorkspaceBroker().getSnapshot();
 
   return NextResponse.json(
     {

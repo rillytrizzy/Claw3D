@@ -1,4 +1,4 @@
-import { createWorkspaceBroker } from "@/lib/workspace-broker/broker";
+import { getWorkspaceBroker } from "@/app/api/workspace/broker";
 import type { WorkspaceAdapterKey } from "@/lib/workspace-broker/types";
 
 export const runtime = "nodejs";
@@ -13,9 +13,6 @@ const json = (body: unknown, status = 200) =>
 
 const errorJson = (message: string, status: number) =>
   json({ error: message }, status);
-
-const getWorkspaceBroker = () =>
-  createWorkspaceBroker({ workspaceRoot: process.cwd() });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));

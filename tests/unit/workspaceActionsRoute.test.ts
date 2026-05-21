@@ -9,6 +9,7 @@ vi.mock("@/lib/uuid", () => ({
   randomUUID: () => "action-route-1",
 }));
 
+import { GET as getHealth } from "@/app/api/health/route";
 import { POST } from "@/app/api/workspace/actions/route";
 import { GET as getWorkspace } from "@/app/api/workspace/route";
 
@@ -20,6 +21,13 @@ const makeRequest = (body?: unknown) =>
     method: "POST",
     headers: { "content-type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+const makeInvalidJsonRequest = (body: string) =>
+  new Request("http://localhost/api/workspace/actions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
   });
 
 describe("workspace routes", () => {
@@ -91,5 +99,46 @@ describe("workspace routes", () => {
       expect(response.status).toBe(400);
       expect(payload.error).toContain(testCase.field);
     }
+  });
+
+  it("POST returns 400 for malformed JSON", async () => {
+    workspaceRoot = makeTempDir("workspace-action-post-malformed");
+    process.chdir(workspaceRoot);
+
+    const response = await POST(makeInvalidJsonRequest("{"));
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(body.error).toBe("Invalid JSON payload.");
+  });
+
+  it("health includes broker status fields with no-store caching", async () => {
+    workspaceRoot = makeTempDir("workspace-health-route");
+    process.chdir(workspaceRoot);
+
+    await POST(
+      makeRequest({
+        agentId: "agent-terminal",
+        type: "open-terminal",
+        target: "docs",
+        adapter: "terminal",
+      }),
+    );
+
+    const response = await getHealth();
+    const body = (await response.json()) as {
+      broker?: {
+        status?: string;
+        lastHeartbeatAt?: string | null;
+        lastError?: string | null;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(body.broker?.status).toBe("ready");
+    expect(body.broker?.lastHeartbeatAt).toBeTruthy();
+    expect(body.broker?.lastError).toBeNull();
   });
 });
