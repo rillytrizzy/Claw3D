@@ -208,6 +208,8 @@ import {
 import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
+import { useWorkspaceBroker } from "@/features/workspace/useWorkspaceBroker";
+import { mapWorkspaceAgentsToOfficeAgents } from "@/lib/office/workspaceAdapter";
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -267,6 +269,7 @@ const MAX_OPENCLAW_AGENT_OUTPUT_LINES = 12;
 const OFFICE_DANCE_MS = 60_000;
 const GATEWAY_LOADING_OVERLAY_DELAY_MS = 1_200;
 const GATEWAY_CONNECT_OVERLAY_DELAY_MS = 1_500;
+const WORKSPACE_BROKER_MODE = true;
 
 const getLatestUserRequestForAgent = (
   agent: AgentState,
@@ -983,6 +986,10 @@ export function OfficeScreen({
     supportsCapability,
   } =
     useRuntimeConnection(settingsCoordinator);
+  const {
+    snapshot: workspaceSnapshot,
+    error: workspaceBrokerError,
+  } = useWorkspaceBroker();
   const runtimeSupportsSkills = supportsCapability("skills");
   const runtimeSupportsApprovals = supportsCapability("approvals");
   const runtimeSupportsCron = supportsCapability("cron");
@@ -4376,6 +4383,25 @@ export function OfficeScreen({
     () => [...officeAgents, ...remoteOfficeAgents],
     [officeAgents, remoteOfficeAgents],
   );
+  const brokerOfficeAgents = useMemo(
+    () => mapWorkspaceAgentsToOfficeAgents(workspaceSnapshot?.agents ?? []),
+    [workspaceSnapshot],
+  );
+  const visibleOfficeAgents = WORKSPACE_BROKER_MODE
+    ? brokerOfficeAgents
+    : allVisibleAgents;
+  const officeRuntimeStatus = WORKSPACE_BROKER_MODE
+    ? (workspaceSnapshot?.broker.status ?? (workspaceBrokerError ? "degraded" : "idle"))
+    : status;
+  const officeActiveAdapterType: StudioGatewayAdapterType = WORKSPACE_BROKER_MODE
+    ? "claw3d"
+    : activeAdapterType;
+  const officeSelectedAdapterType: StudioGatewayAdapterType = WORKSPACE_BROKER_MODE
+    ? "claw3d"
+    : selectedAdapterType;
+  const officeRuntimeTitle = WORKSPACE_BROKER_MODE
+    ? (workspaceSnapshot?.workspace.label ?? "Local Workspace")
+    : officeTitle;
   const remoteOfficeVisible =
     remoteOfficeEnabled &&
     (remoteOfficeSourceKind === "presence_endpoint"
@@ -4673,6 +4699,7 @@ export function OfficeScreen({
   }, [agentsLoaded, didAttemptGatewayConnect, shouldPromptForConnect, status]);
 
   const showGatewayLoadingOverlay =
+    !WORKSPACE_BROKER_MODE &&
     !agentsLoaded &&
     (!connectPromptReady ||
       (gatewayUrl.trim().length > 0 &&
@@ -4680,6 +4707,7 @@ export function OfficeScreen({
         ((!didAttemptGatewayConnect && showDelayedGatewayLoadingOverlay) ||
           (status === "connecting" && showDelayedGatewayLoadingOverlay))));
   const showGatewayConnectOverlay =
+    !WORKSPACE_BROKER_MODE &&
     connectPromptReady &&
     status === "disconnected" &&
     !agentsLoaded &&
@@ -4754,7 +4782,7 @@ export function OfficeScreen({
       <section className="relative h-full min-h-0 min-w-0 overflow-hidden">
         <RetroOffice3D
           key={activeFloor.id}
-          agents={allVisibleAgents}
+          agents={visibleOfficeAgents}
           storageNamespace={activeFloor.id}
           layoutPreset={activeFloor.kind === "lobby" ? "lobby" : "office"}
           officeCenterSignal={officeCameraCenterSignal}
@@ -4771,8 +4799,8 @@ export function OfficeScreen({
           githubSkill={githubSkill}
           taskManagerEnabled={taskManagerReady}
           soundclawEnabled={soundclawReady}
-          officeTitle={officeTitle}
-          officeTitleLoaded={officeTitleLoaded}
+          officeTitle={officeRuntimeTitle}
+          officeTitleLoaded={WORKSPACE_BROKER_MODE ? true : officeTitleLoaded}
           remoteOfficeEnabled={remoteOfficeEnabled}
           remoteOfficeSourceKind={remoteOfficeSourceKind}
           remoteOfficeLabel={remoteOfficeLabel}
@@ -4812,8 +4840,8 @@ export function OfficeScreen({
           }}
           gatewayUrl={gatewayUrl}
           gatewayToken={token}
-          selectedAdapterType={selectedAdapterType}
-          activeAdapterType={activeAdapterType}
+          selectedAdapterType={officeSelectedAdapterType}
+          activeAdapterType={officeActiveAdapterType}
           onGatewayDisconnect={disconnect}
           onGatewayConnect={() => void connect()}
           onGatewayUrlChange={setGatewayUrl}
@@ -4821,7 +4849,7 @@ export function OfficeScreen({
           onGatewayAdapterTypeChange={setSelectedAdapterType}
           onOpenOnboarding={handleOpenOnboarding}
           feedEvents={feedEvents}
-          gatewayStatus={status}
+          gatewayStatus={officeRuntimeStatus}
           runCountByAgentId={runCountByAgentId}
           lastSeenByAgentId={lastSeenByAgentId}
           streamingTextByAgentId={streamingTextByAgentId}
