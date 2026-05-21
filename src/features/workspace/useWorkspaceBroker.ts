@@ -47,12 +47,8 @@ export const useWorkspaceBroker = (): UseWorkspaceBrokerResult => {
         const nextSnapshot = parseWorkspaceSnapshot(event.data);
         setSnapshot(nextSnapshot);
         setError(null);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to parse workspace event payload.",
-        );
+      } catch {
+        return;
       }
     };
 

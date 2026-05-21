@@ -1,7 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mapWorkspaceAgentsToOfficeAgents } from "@/lib/office/workspaceAdapter";
 import type { WorkspaceAgentRecord } from "@/lib/workspace-contract/types";
+import { useWorkspaceBroker } from "@/features/workspace/useWorkspaceBroker";
+import { fetchJson } from "@/lib/http";
+
+vi.mock("@/lib/http", () => ({
+  fetchJson: vi.fn(),
+}));
+
+const mockedFetchJson = vi.mocked(fetchJson);
 
 const makeAgent = (overrides: Partial<WorkspaceAgentRecord>): WorkspaceAgentRecord => ({
   id: "agent-1",
@@ -20,6 +29,53 @@ const makeAgent = (overrides: Partial<WorkspaceAgentRecord>): WorkspaceAgentReco
   lastEvent: null,
   sceneProfile: { area: "desk", pose: "standing", attention: false },
   ...overrides,
+});
+
+const makeSnapshot = (agents: WorkspaceAgentRecord[] = []) => ({
+  workspace: {
+    id: "primary",
+    label: "Primary Workspace",
+    schemaVersion: 1,
+    updatedAt: "2026-05-21T00:00:00.000Z",
+  },
+  broker: {
+    status: "ready" as const,
+    adapterAvailability: {},
+    lastHeartbeatAt: null,
+    lastError: null,
+  },
+  agents,
+  actions: [],
+  sessions: [],
+  terminal: { available: false, sessions: [] },
+  automations: { available: false, running: [] },
+  marketplace: { available: false, installs: [] },
+  n8n: { available: false, runs: [] },
+  scene: { focusAgentId: null, followAgentId: null, attentionAgentIds: [] },
+  history: [],
+});
+
+class MockEventSource {
+  static readonly CLOSED = 2;
+  static instances: MockEventSource[] = [];
+
+  onerror: (() => void) | null = null;
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  readyState = 0;
+  url: string;
+  close = vi.fn(() => {
+    this.readyState = MockEventSource.CLOSED;
+  });
+
+  constructor(url: string) {
+    this.url = url;
+    MockEventSource.instances.push(this);
+  }
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  MockEventSource.instances = [];
 });
 
 describe("workspace adapter", () => {
@@ -62,5 +118,47 @@ describe("workspace adapter", () => {
       subtitle: "Gateway latency rising",
       item: "Gateway latency rising",
     });
+  });
+});
+
+describe("useWorkspaceBroker", () => {
+  it("loads the workspace, subscribes to events, ignores malformed events, and closes on unmount", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const initialSnapshot = makeSnapshot([
+      makeAgent({ id: "initial", name: "Initial" }),
+    ]);
+    const eventSnapshot = makeSnapshot([
+      makeAgent({ id: "event", name: "Event Agent" }),
+    ]);
+    mockedFetchJson.mockResolvedValue(initialSnapshot);
+
+    const { result, unmount } = renderHook(() => useWorkspaceBroker());
+
+    await waitFor(() => {
+      expect(result.current.snapshot?.agents[0]?.id).toBe("initial");
+    });
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    const eventSource = MockEventSource.instances[0]!;
+    expect(eventSource.url).toBe("/api/workspace/events");
+
+    act(() => {
+      eventSource.onmessage?.({ data: "{broken" } as MessageEvent<string>);
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.snapshot?.agents[0]?.id).toBe("initial");
+
+    act(() => {
+      eventSource.onmessage?.({
+        data: JSON.stringify(eventSnapshot),
+      } as MessageEvent<string>);
+    });
+
+    await waitFor(() => {
+      expect(result.current.snapshot?.agents[0]?.id).toBe("event");
+    });
+
+    unmount();
+    expect(eventSource.close).toHaveBeenCalledTimes(1);
   });
 });
