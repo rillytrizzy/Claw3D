@@ -26,6 +26,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const { WebSocketServer } = require("ws");
+const { createAgentController } = require("./agent-controller");
 
 function loadDotenvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -68,6 +69,11 @@ const MAIN_KEY = "main";
 const MAIN_SESSION_KEY = `agent:${AGENT_ID}:${MAIN_KEY}`;
 const CONFIG_PATH = `${HOME}/.hermes/config.json`;
 const MAX_TOOL_ROUNDS = 8;
+let agentController = createAgentController();
+
+function setAgentControllerForTests(controller) {
+  agentController = controller;
+}
 
 function parseGovernanceBool(value, defaultValue) {
   if (value === undefined || value === "") return defaultValue;
@@ -843,11 +849,63 @@ async function runAgenticLoop({ sessionKey, agentId, userMessage, model, tools, 
 function resOk(id, payload) { return { type: "res", id, ok: true, payload: payload ?? {} }; }
 function resErr(id, code, message) { return { type: "res", id, ok: false, error: { code, message } }; }
 
+function buildRequestSource(req) {
+  return {
+    remoteAddress: req?.socket?.remoteAddress || "",
+    origin: req?.headers?.origin || "",
+    headers: req?.headers || {},
+  };
+}
+
+function resolveHealthCorsOrigin(req) {
+  const origin = String(req?.headers?.origin || "").trim();
+  if (!origin) return null;
+
+  const configured = String(process.env.HERMES_HEALTH_CORS_ALLOW_ORIGINS || "").trim();
+  const defaults = [
+    "https://command-nexus-dashboard.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ];
+  const allowedOrigins = new Set(
+    (configured ? configured.split(",") : defaults)
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+
+  return allowedOrigins.has(origin) ? origin : null;
+}
+
+function readRequestJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += String(chunk || "");
+      if (body.length > 512 * 1024) {
+        reject(new Error("Request body too large."));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (!body.trim()) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(body));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Method handlers
 // ---------------------------------------------------------------------------
 
-async function handleMethod(method, params, id, sendEvent) {
+async function handleMethod(method, params, id, sendEvent, requestSource = null) {
   const p = params || {};
 
   switch (method) {
@@ -1129,6 +1187,14 @@ async function handleMethod(method, params, id, sendEvent) {
     case "tasks.list":
       return resOk(id, { tasks: [] });
 
+    case "hermes.action.schema":
+      return resOk(id, { schema: agentController.getActionSchema() });
+
+    case "hermes.action.run": {
+      const payload = await agentController.executeAction(p.action || p, requestSource);
+      return resOk(id, payload);
+    }
+
     // --- Cron jobs ----------------------------------------------------------
 
     case "cron.list": {
@@ -1199,6 +1265,52 @@ async function handleMethod(method, params, id, sendEvent) {
 
 function startAdapter() {
   const httpServer = http.createServer((req, res) => {
+    if (req.method === "GET" && req.url === "/health") {
+      const allowOrigin = resolveHealthCorsOrigin(req);
+      if (allowOrigin) {
+        res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+        res.setHeader("Vary", "Origin");
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          adapter: "hermes",
+          port: ADAPTER_PORT,
+          schemaVersion: 1,
+          actions: agentController.getActionSchema().supportedHooks,
+        })
+      );
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/actions/schema") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(agentController.getActionSchema()));
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/actions/run") {
+      void readRequestJsonBody(req)
+        .then(async (body) => {
+          const action = body?.action || body;
+          const result = await agentController.executeAction(action, buildRequestSource(req));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        })
+        .catch((error) => {
+          const statusCode = error?.code === "remote_address_not_allowed" ? 403 : 400;
+          res.writeHead(statusCode, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              ok: false,
+              error: sanitizeErrorMessage(error),
+              code: error?.code || "invalid_request",
+            })
+          );
+        });
+      return;
+    }
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("Hermes Gateway Adapter – OK\n");
   });
@@ -1208,9 +1320,10 @@ function startAdapter() {
     if (err.code !== "EADDRINUSE") console.error("[hermes-adapter] Server error:", sanitizeErrorMessage(err));
   });
 
-  wss.on("connection", (ws) => {
+  wss.on("connection", (ws, req) => {
     let connected = false;
     let globalSeq = 0;
+    const requestSource = buildRequestSource(req);
 
     const send = (frame) => {
       if (ws.readyState === ws.OPEN) {
@@ -1251,6 +1364,7 @@ function startAdapter() {
               "exec.approvals.get","exec.approvals.set","exec.approval.resolve",
               "wake","skills.status","models.list",
               "tasks.list",
+              "hermes.action.schema","hermes.action.run",
               "cron.list","cron.add","cron.remove","cron.patch","cron.run"],
               events: ["chat","presence","heartbeat","cron"] },
             snapshot: { health: { agents: allAgents, defaultAgentId: AGENT_ID },
@@ -1265,12 +1379,13 @@ function startAdapter() {
       if (!connected) { send(resErr(id, "not_connected", "Send connect first.")); return; }
 
       try {
-        const response = await handleMethod(method, params, id, sendEventFn);
+        const response = await handleMethod(method, params, id, sendEventFn, requestSource);
         send(response);
       } catch (err) {
         const message = sanitizeErrorMessage(err);
+        const code = err?.code || "internal_error";
         console.error(`[hermes-adapter] Error handling ${method}:`, message);
-        send(resErr(id, "internal_error", message || "Internal error"));
+        send(resErr(id, code, message || "Internal error"));
       }
     });
 
@@ -1300,4 +1415,14 @@ function startAdapter() {
 }
 
 loadHistoryFromDisk();
-startAdapter();
+
+if (require.main === module) {
+  startAdapter();
+}
+
+module.exports = {
+  buildRequestSource,
+  handleMethod,
+  setAgentControllerForTests,
+  startAdapter,
+};
