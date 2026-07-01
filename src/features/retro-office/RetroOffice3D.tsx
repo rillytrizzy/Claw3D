@@ -5403,7 +5403,7 @@ export function RetroOffice3D({
               near: 0.1,
               far: 100,
             }}
-            shadows={{ type: THREE.PCFShadowMap }}
+            shadows={{ type: THREE.PCFSoftShadowMap }}
             gl={{ antialias: true, powerPreference: "high-performance" }}
             style={{ width: "100%", height: "100%" }}
             onPointerUp={() => {

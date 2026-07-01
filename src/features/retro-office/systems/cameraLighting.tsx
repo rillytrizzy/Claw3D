@@ -353,13 +353,16 @@ export function DayNightCycle({
   return (
     <>
       <ambientLight ref={ambientRef} intensity={0.75} color="#c8d0e0" />
+      {/* Soft sky/ground fill — gives low-poly surfaces a gradient instead of
+          flat ambient, and warms the floor-facing sides. Cheap, no shadows. */}
+      <hemisphereLight args={["#eaf1ff", "#9c7a52", 0.45]} />
       <directionalLight
         ref={sunRef}
         position={[10, 14, 10]}
         intensity={1.3}
         color="#f0f4ff"
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0002}
         shadow-normalBias={0.02}
         shadow-camera-left={-WORLD_W * 0.7}
@@ -367,6 +370,8 @@ export function DayNightCycle({
         shadow-camera-top={WORLD_H * 0.7}
         shadow-camera-bottom={-WORLD_H * 0.7}
       />
+      {/* Cool rim/fill from the opposite side to lift shadowed faces. */}
+      <directionalLight position={[-8, 6, -6]} intensity={0.28} color="#aecbff" />
     </>
   );
 }
