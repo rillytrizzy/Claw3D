@@ -9,7 +9,10 @@ import type {
   WorkspaceBrokerActionInput,
 } from "@/lib/workspace-broker/types";
 import { loadWorkspaceContract, saveWorkspaceContract } from "@/lib/workspace-contract/store";
-import type { WorkspaceContract } from "@/lib/workspace-contract/types";
+import type {
+  WorkspaceAgentRecord,
+  WorkspaceContract,
+} from "@/lib/workspace-contract/types";
 
 type WorkspaceActionRecord = WorkspaceContract["actions"][number];
 
@@ -19,6 +22,60 @@ const WORKSPACE_ADAPTER_KEYS: WorkspaceAdapterKey[] = [
   "automation",
   "marketplace",
   "n8n",
+];
+
+const createDefaultWorkspaceAgents = (workspaceRoot: string): WorkspaceAgentRecord[] => [
+  {
+    id: "agent-terminal",
+    name: "Terminal Operator",
+    role: "terminal-control",
+    repoPath: workspaceRoot,
+    status: "idle",
+    intentState: null,
+    currentTask: "Standing by for local terminal work",
+    capabilities: ["terminal.open"],
+    availableAutomations: [],
+    terminalTargets: ["workspace-shell"],
+    marketplaceScopes: [],
+    n8nFlows: [],
+    health: "healthy",
+    lastEvent: "Broker roster loaded",
+    sceneProfile: { area: "ops", pose: "standing", attention: false },
+  },
+  {
+    id: "agent-repo",
+    name: "Repo Builder",
+    role: "repo-agent",
+    repoPath: workspaceRoot,
+    status: "idle",
+    intentState: null,
+    currentTask: "Ready for repo actions",
+    capabilities: ["repo.run"],
+    availableAutomations: ["local-script"],
+    terminalTargets: [],
+    marketplaceScopes: [],
+    n8nFlows: [],
+    health: "healthy",
+    lastEvent: "Broker roster loaded",
+    sceneProfile: { area: "builder", pose: "standing", attention: false },
+  },
+  {
+    id: "agent-automation",
+    name: "Automation Router",
+    role: "automation",
+    repoPath: null,
+    status: "idle",
+    intentState: null,
+    currentTask: "Ready for local automation and n8n flows",
+    capabilities: ["automation.run", "n8n.trigger"],
+    availableAutomations: ["workspace-refresh"],
+    terminalTargets: [],
+    marketplaceScopes: ["local-tools"],
+    n8nFlows: ["daily-sync"],
+    health: "healthy",
+    lastEvent: "Broker roster loaded",
+    sceneProfile: { area: "automation", pose: "standing", attention: false },
+  },
 ];
 
 const createAdapterAvailability = (
@@ -65,8 +122,13 @@ const findAction = (
 const mergeAdapterState = (
   snapshot: WorkspaceContract,
   adapterMap: WorkspaceAdapterMap,
+  workspaceRoot: string,
 ): WorkspaceContract => ({
   ...snapshot,
+  agents:
+    snapshot.agents.length > 0
+      ? snapshot.agents
+      : createDefaultWorkspaceAgents(workspaceRoot),
   broker: {
     ...snapshot.broker,
     adapterAvailability: {
@@ -75,6 +137,67 @@ const mergeAdapterState = (
     },
   },
 });
+
+const createFallbackAgent = (
+  agentId: string,
+  workspaceRoot: string,
+): WorkspaceAgentRecord => ({
+  id: agentId,
+  name: agentId,
+  role: "workspace-agent",
+  repoPath: workspaceRoot,
+  status: "idle",
+  intentState: null,
+  currentTask: null,
+  capabilities: [],
+  availableAutomations: [],
+  terminalTargets: [],
+  marketplaceScopes: [],
+  n8nFlows: [],
+  health: "healthy",
+  lastEvent: null,
+  sceneProfile: { area: "workspace", pose: "standing", attention: false },
+});
+
+const statusForLifecycle = (
+  lifecycle: WorkspaceActionRecord["lifecycle"],
+): WorkspaceAgentRecord["status"] => {
+  if (lifecycle === "failed") return "error";
+  if (lifecycle === "succeeded" || lifecycle === "cancelled") return "idle";
+  return "working";
+};
+
+const updateAgentForAction = ({
+  agents,
+  action,
+  workspaceRoot,
+  eventText,
+}: {
+  agents: WorkspaceAgentRecord[];
+  action: WorkspaceActionRecord;
+  workspaceRoot: string;
+  eventText: string;
+}): WorkspaceAgentRecord[] => {
+  const existingAgents = agents.some((agent) => agent.id === action.agentId)
+    ? agents
+    : [...agents, createFallbackAgent(action.agentId, workspaceRoot)];
+
+  return existingAgents.map((agent) => {
+    if (agent.id !== action.agentId) return agent;
+    return {
+      ...agent,
+      status: statusForLifecycle(action.lifecycle),
+      intentState: action.lifecycle,
+      currentTask: `${action.type}: ${action.target}`,
+      health: action.lifecycle === "failed" ? "degraded" : "healthy",
+      lastEvent: eventText,
+      sceneProfile: {
+        ...agent.sceneProfile,
+        attention: action.lifecycle === "failed",
+      },
+    };
+  });
+};
 
 export const createWorkspaceBroker = ({
   workspaceRoot,
@@ -91,6 +214,7 @@ export const createWorkspaceBroker = ({
   let snapshot = mergeAdapterState(
     loadWorkspaceContract({ workspaceRoot }),
     adapterMap,
+    workspaceRoot,
   );
 
   const persist = () => {
@@ -99,16 +223,26 @@ export const createWorkspaceBroker = ({
     return snapshot;
   };
 
-  const mutateAction = (
+  const transitionAction = (
     actionId: string,
     updater: (action: WorkspaceActionRecord) => WorkspaceActionRecord,
+    eventText: string,
   ): WorkspaceActionRecord => {
+    const actions = replaceAction(snapshot.actions, actionId, updater);
+    const updatedAction = findAction(actions, actionId);
+
     snapshot = {
       ...snapshot,
-      actions: replaceAction(snapshot.actions, actionId, updater),
+      actions,
+      agents: updateAgentForAction({
+        agents: snapshot.agents,
+        action: updatedAction,
+        workspaceRoot,
+        eventText,
+      }),
     };
     persist();
-    return findAction(snapshot.actions, actionId);
+    return updatedAction;
   };
 
   return {
@@ -128,14 +262,27 @@ export const createWorkspaceBroker = ({
         },
         actions: [action, ...snapshot.actions],
       };
+      snapshot = {
+        ...snapshot,
+        agents: updateAgentForAction({
+          agents: snapshot.agents,
+          action,
+          workspaceRoot,
+          eventText: `Queued ${input.type} for ${input.target}`,
+        }),
+      };
       persist();
 
       try {
-        mutateAction(action.id, (current) => ({
-          ...current,
-          lifecycle: "routing",
-          updatedAt: new Date().toISOString(),
-        }));
+        transitionAction(
+          action.id,
+          (current) => ({
+            ...current,
+            lifecycle: "routing",
+            updatedAt: new Date().toISOString(),
+          }),
+          `Routing ${input.type} to ${input.adapter}`,
+        );
 
         const adapter = adapterMap[input.adapter];
         if (!adapter) {
@@ -143,13 +290,18 @@ export const createWorkspaceBroker = ({
         }
 
         const result = await adapter(input);
-        return mutateAction(action.id, (current) => ({
-          ...current,
-          lifecycle: result.lifecycle,
-          executor: result.executor,
-          resultSummary: result.resultSummary,
-          updatedAt: new Date().toISOString(),
-        }));
+        const completedAction = transitionAction(
+          action.id,
+          (current) => ({
+            ...current,
+            lifecycle: result.lifecycle,
+            executor: result.executor,
+            resultSummary: result.resultSummary,
+            updatedAt: new Date().toISOString(),
+          }),
+          result.resultSummary ?? `${input.type} ${result.lifecycle}`,
+        );
+        return completedAction;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "unknown broker failure";
@@ -166,6 +318,16 @@ export const createWorkspaceBroker = ({
             status: "degraded",
             lastError: message,
           },
+        };
+        const failedAction = findAction(snapshot.actions, action.id);
+        snapshot = {
+          ...snapshot,
+          agents: updateAgentForAction({
+            agents: snapshot.agents,
+            action: failedAction,
+            workspaceRoot,
+            eventText: message,
+          }),
         };
         persist();
         throw error;

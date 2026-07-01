@@ -26,6 +26,12 @@ describe("workspace broker", () => {
     const broker = createWorkspaceBroker({ workspaceRoot });
     const snapshots: string[] = [];
 
+    expect(broker.getSnapshot().agents.map((agent) => agent.id)).toEqual([
+      "agent-terminal",
+      "agent-repo",
+      "agent-automation",
+    ]);
+
     const unsubscribe = broker.subscribe((snapshot) => {
       snapshots.push(snapshot.actions[0]?.lifecycle ?? "none");
     });
@@ -46,6 +52,17 @@ describe("workspace broker", () => {
     expect(broker.getSnapshot().broker.status).toBe("ready");
     expect(broker.getSnapshot().broker.lastHeartbeatAt).not.toBeNull();
     expect(snapshots).toEqual(["queued", "routing", "running"]);
+    expect(broker.getSnapshot().agents[0]).toMatchObject({
+      id: "agent-terminal",
+      status: "working",
+      intentState: "running",
+      currentTask: "open-terminal: docs",
+      health: "healthy",
+      lastEvent: "Opened terminal target docs",
+      sceneProfile: {
+        attention: false,
+      },
+    });
 
     const persisted = loadWorkspaceContract({ workspaceRoot });
     expect(persisted.broker.status).toBe("ready");
@@ -62,6 +79,12 @@ describe("workspace broker", () => {
       executor: "terminal",
       resultSummary: "Opened terminal target docs",
       errorSummary: null,
+    });
+    expect(persisted.agents[0]).toMatchObject({
+      id: "agent-terminal",
+      status: "working",
+      intentState: "running",
+      lastEvent: "Opened terminal target docs",
     });
   });
 
@@ -140,6 +163,17 @@ describe("workspace broker", () => {
       resultSummary: null,
       errorSummary: "n8n offline",
     });
+    expect(broker.getSnapshot().agents[2]).toMatchObject({
+      id: "agent-automation",
+      status: "error",
+      intentState: "failed",
+      currentTask: "run-flow: daily-sync",
+      health: "degraded",
+      lastEvent: "n8n offline",
+      sceneProfile: {
+        attention: true,
+      },
+    });
 
     const persisted = loadWorkspaceContract({ workspaceRoot });
     expect(persisted.broker.status).toBe("degraded");
@@ -148,6 +182,12 @@ describe("workspace broker", () => {
       id: "action-1",
       lifecycle: "failed",
       errorSummary: "n8n offline",
+    });
+    expect(persisted.agents[2]).toMatchObject({
+      id: "agent-automation",
+      status: "error",
+      intentState: "failed",
+      lastEvent: "n8n offline",
     });
   });
 });

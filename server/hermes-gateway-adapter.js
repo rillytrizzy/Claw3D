@@ -901,6 +901,67 @@ function readRequestJsonBody(req) {
   });
 }
 
+function isForbiddenActionError(error) {
+  return (
+    error?.code === "shared_secret_required" ||
+    error?.code === "remote_address_not_allowed" ||
+    error?.code === "origin_not_allowed"
+  );
+}
+
+function createHttpRequestHandler() {
+  return (req, res) => {
+    if (req.method === "GET" && req.url === "/health") {
+      const allowOrigin = resolveHealthCorsOrigin(req);
+      if (allowOrigin) {
+        res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+        res.setHeader("Vary", "Origin");
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          ok: true,
+          adapter: "hermes",
+          port: ADAPTER_PORT,
+          schemaVersion: 1,
+          actions: agentController.getActionSchema().supportedHooks,
+        })
+      );
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/actions/schema") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(agentController.getActionSchema()));
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/actions/run") {
+      void readRequestJsonBody(req)
+        .then(async (body) => {
+          const action = body?.action || body;
+          const result = await agentController.executeAction(action, buildRequestSource(req));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        })
+        .catch((error) => {
+          const statusCode = isForbiddenActionError(error) ? 403 : 400;
+          res.writeHead(statusCode, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              ok: false,
+              error: sanitizeErrorMessage(error),
+              code: error?.code || "invalid_request",
+            })
+          );
+        });
+      return;
+    }
+
+    res.end("Hermes Gateway Adapter - OK\n");
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Method handlers
 // ---------------------------------------------------------------------------
@@ -1264,57 +1325,10 @@ async function handleMethod(method, params, id, sendEvent, requestSource = null)
 // ---------------------------------------------------------------------------
 
 function startAdapter() {
-  const httpServer = http.createServer((req, res) => {
-    if (req.method === "GET" && req.url === "/health") {
-      const allowOrigin = resolveHealthCorsOrigin(req);
-      if (allowOrigin) {
-        res.setHeader("Access-Control-Allow-Origin", allowOrigin);
-        res.setHeader("Vary", "Origin");
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(
-        JSON.stringify({
-          ok: true,
-          adapter: "hermes",
-          port: ADAPTER_PORT,
-          schemaVersion: 1,
-          actions: agentController.getActionSchema().supportedHooks,
-        })
-      );
-      return;
-    }
-
-    if (req.method === "GET" && req.url === "/actions/schema") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(agentController.getActionSchema()));
-      return;
-    }
-
-    if (req.method === "POST" && req.url === "/actions/run") {
-      void readRequestJsonBody(req)
-        .then(async (body) => {
-          const action = body?.action || body;
-          const result = await agentController.executeAction(action, buildRequestSource(req));
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(result));
-        })
-        .catch((error) => {
-          const statusCode = error?.code === "remote_address_not_allowed" ? 403 : 400;
-          res.writeHead(statusCode, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              ok: false,
-              error: sanitizeErrorMessage(error),
-              code: error?.code || "invalid_request",
-            })
-          );
-        });
-      return;
-    }
-    res.writeHead(200, { "Content-Type": "text/plain" });
+  const httpServer = http.createServer(createHttpRequestHandler());
+  /*
     res.end("Hermes Gateway Adapter – OK\n");
-  });
-
+  */
   const wss = new WebSocketServer({ server: httpServer });
   wss.on("error", (err) => {
     if (err.code !== "EADDRINUSE") console.error("[hermes-adapter] Server error:", sanitizeErrorMessage(err));
@@ -1422,6 +1436,7 @@ if (require.main === module) {
 
 module.exports = {
   buildRequestSource,
+  createHttpRequestHandler,
   handleMethod,
   setAgentControllerForTests,
   startAdapter,

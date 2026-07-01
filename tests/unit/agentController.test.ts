@@ -50,6 +50,46 @@ describe("agent-controller", () => {
     });
   });
 
+  it("requires_a_configured_shared_secret_for_action_execution", async () => {
+    const { validateRequestSource } = await import("../../server/agent-controller.js");
+
+    expect(
+      validateRequestSource(
+        {
+          remoteAddress: "127.0.0.1",
+          headers: {},
+        },
+        { env: {} }
+      )
+    ).toMatchObject({
+      allowed: false,
+      reason: "shared_secret_required",
+    });
+
+    expect(
+      validateRequestSource(
+        {
+          remoteAddress: "127.0.0.1",
+          headers: { "x-hermes-action-key": "wrong" },
+        },
+        { env: { HERMES_ACTION_SHARED_SECRET: "expected" } }
+      )
+    ).toMatchObject({
+      allowed: false,
+      reason: "shared_secret_required",
+    });
+
+    expect(
+      validateRequestSource(
+        {
+          remoteAddress: "127.0.0.1",
+          headers: { "x-hermes-action-key": "expected" },
+        },
+        { env: { HERMES_ACTION_SHARED_SECRET: "expected" } }
+      )
+    ).toMatchObject({ allowed: true });
+  });
+
   it("executes_hooks_via_powershell_without_shell_interpolation", async () => {
     const spawn = vi.fn(() => ({
       stdout: { on: vi.fn() },
@@ -65,7 +105,7 @@ describe("agent-controller", () => {
     const controller = createAgentController({
       spawn,
       now: () => 1234,
-      env: {},
+      env: { HERMES_ACTION_SHARED_SECRET: "test-secret" },
     });
 
     const result = await controller.executeAction(
@@ -77,6 +117,7 @@ describe("agent-controller", () => {
       },
       {
         remoteAddress: "127.0.0.1",
+        headers: { "x-hermes-action-key": "test-secret" },
       }
     );
 

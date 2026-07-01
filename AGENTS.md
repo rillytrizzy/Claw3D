@@ -1,5 +1,22 @@
 # Agent Instructions
 
+## Local Operating Mode (rillytrizzy instance)
+
+This installation runs in **broker-first mode** — the local broker server (`server/index.js`) acts as the runtime authority. OpenClaw is not required and is not connected.
+
+- Start with `npm run dev` — this launches the broker on port 3000.
+- The workspace contract at `.claw3d-workspace/workspace-contract.json` is the live state source.
+- `/api/workspace`, `/api/workspace/events`, and `/api/health` are the real data endpoints.
+- Demo gateway runs on `127.0.0.1:18789` when active.
+- The "gateway connection form" shown in the UI when no OpenClaw gateway is detected is expected and harmless — do not attempt to install OpenClaw to resolve it.
+- Persisted `.openclaw` settings or browser state can override runtime intent — check `.claw3d-workspace/` for current contract state before assuming defaults.
+
+When the user says "run the app" or "check the runtime state," work against the broker endpoints above, not against an OpenClaw gateway.
+
+---
+
+## Upstream Instructions (public / open source defaults)
+
 Keep repository instructions generic and safe for open source.
 
 This repo is a frontend for OpenClaw. Keep any OpenClaw runtime checkout separate from this repository.

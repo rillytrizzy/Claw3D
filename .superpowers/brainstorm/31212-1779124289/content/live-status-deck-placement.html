@@ -1,0 +1,61 @@
+<h2>Where should the Live Status Deck live?</h2>
+<p class="subtitle">Choose the visual placement for the V1 deck. The interaction set is fixed: inspect, focus/follow, ping, and mark attention locally.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup" style="margin:0">
+        <div class="mockup-header">A. Bottom Command Dock</div>
+        <div class="mockup-body" style="position:relative;height:190px">
+          <div class="placeholder" style="height:126px">Office scene</div>
+          <div style="position:absolute;left:12px;right:12px;bottom:12px;border:1px solid #7c5b2f;border-radius:8px;padding:8px;background:#1b1712">
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="label">Live</span>
+              <div class="placeholder" style="height:28px;flex:1">Agents: 2 working, 1 idle</div>
+              <button class="mock-button">Inspect</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Bottom Command Dock</h3>
+      <p>Expands the current mini status bar into a persistent control dock. Fast to scan, low scene obstruction.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup" style="margin:0">
+        <div class="mockup-header">B. Right Status Rail</div>
+        <div class="mockup-body" style="display:grid;grid-template-columns:1fr 120px;gap:10px;height:190px">
+          <div class="placeholder">Office scene</div>
+          <div class="mock-sidebar" style="height:auto">
+            Agent card<br><br>Status<br><br>Focus<br>Ping
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Right Status Rail</h3>
+      <p>A dedicated inspect panel beside the scene. More room for details, but it takes permanent horizontal space.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup" style="margin:0">
+        <div class="mockup-header">C. Floating Agent Cards</div>
+        <div class="mockup-body" style="position:relative;height:190px">
+          <div class="placeholder" style="height:100%">Office scene</div>
+          <div style="position:absolute;left:18px;top:24px;border:1px solid #7c5b2f;border-radius:8px;padding:8px;background:#1b1712;width:110px">Agent A<br>Working</div>
+          <div style="position:absolute;right:18px;bottom:24px;border:1px solid #7c5b2f;border-radius:8px;padding:8px;background:#1b1712;width:110px">Agent B<br>Waiting</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Floating Agent Cards</h3>
+      <p>Status follows agents in-scene. Feels alive, but has the highest overlap risk and more visual noise.</p>
+    </div>
+  </div>
+</div>

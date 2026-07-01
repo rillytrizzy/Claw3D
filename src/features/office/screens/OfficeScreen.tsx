@@ -209,7 +209,14 @@ import { deriveSkillReadinessState } from "@/lib/skills/presentation";
 import type { StandupAgentSnapshot } from "@/lib/office/standup/types";
 import type { SkillStatusEntry } from "@/lib/skills/types";
 import { useWorkspaceBroker } from "@/features/workspace/useWorkspaceBroker";
-import { mapWorkspaceAgentsToOfficeAgents } from "@/lib/office/workspaceAdapter";
+import {
+  mapWorkspaceAgentsToAgentSeeds,
+  mapWorkspaceAgentsToOfficeAgents,
+} from "@/lib/office/workspaceAdapter";
+import {
+  resolveBrokerActiveFloorId,
+  resolveOfficeBrokerModeState,
+} from "@/features/office/screens/officeBrokerMode";
 
 const stringToColor = (str: string) => {
   let hash = 0;
@@ -960,6 +967,7 @@ export function OfficeScreen({
     if (typeof window === "undefined") return false;
     return new URL(window.location.href).searchParams.get("officeDebug") === "1";
   });
+  const rawConsoleEnabled = showOpenClawConsole;
   const [settingsCoordinator] = useState(() =>
     createStudioSettingsCoordinator(),
   );
@@ -1116,7 +1124,9 @@ export function OfficeScreen({
   const [deskAssignmentByDeskUid, setDeskAssignmentByDeskUid] = useState<
     Record<string, string>
   >({});
-  const [activeFloorId, setActiveFloorId] = useState<FloorId>("lobby");
+  const [activeFloorId, setActiveFloorId] = useState<FloorId>(() =>
+    resolveBrokerActiveFloorId(WORKSPACE_BROKER_MODE, "lobby"),
+  );
   const [pendingFloorRuntimeSwitch, setPendingFloorRuntimeSwitch] =
     useState<PendingFloorRuntimeSwitch | null>(null);
   const previousGatewayStatusRef = useRef<"disconnected" | "connecting" | "connected">(
@@ -1126,7 +1136,9 @@ export function OfficeScreen({
   const [floorRosterCache, setFloorRosterCache] = useState(() =>
     createFloorRosterCache(),
   );
-  const activeFloorIdRef = useRef<FloorId>("lobby");
+  const activeFloorIdRef = useRef<FloorId>(
+    resolveBrokerActiveFloorId(WORKSPACE_BROKER_MODE, "lobby"),
+  );
   const floorRosterCacheRef = useRef(floorRosterCache);
   const [gatewayModels, setGatewayModels] = useState<GatewayModelChoice[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1176,12 +1188,23 @@ export function OfficeScreen({
   }, [floorRosterCache]);
 
   useEffect(() => {
+    if (!WORKSPACE_BROKER_MODE) return;
+    if (activeFloorId === "claw3d-runtime") return;
+    setActiveFloorId("claw3d-runtime");
+  }, [activeFloorId]);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const settings = await settingsCoordinator.loadSettings({ maxAgeMs: 30_000 });
         if (!settings || cancelled) return;
-        setActiveFloorId(resolveStudioActiveFloorId(settings));
+        setActiveFloorId(
+          resolveBrokerActiveFloorId(
+            WORKSPACE_BROKER_MODE,
+            resolveStudioActiveFloorId(settings),
+          ),
+        );
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load active floor preference.", error);
@@ -1390,7 +1413,8 @@ export function OfficeScreen({
     voiceId: voiceRepliesPreference.voiceId,
     speed: voiceRepliesPreference.speed,
   });
-  const showOnboardingWizard = showOnboarding || forceShowOnboarding;
+  const showOnboardingWizard =
+    forceShowOnboarding || (!WORKSPACE_BROKER_MODE && showOnboarding);
   const handleOpenOnboarding = useCallback(() => {
     resetOnboarding();
     setCompanyCreatedSignal(0);
@@ -4311,7 +4335,11 @@ export function OfficeScreen({
     return map;
   }, [state.agents]);
   const openClawLiveStateText = useMemo(() => {
-    const lines = ["== LIVE OPENCLAW STATE =="];
+    const lines = [
+      WORKSPACE_BROKER_MODE
+        ? "== LIVE WORKSPACE BROKER STATE =="
+        : "== LIVE OPENCLAW STATE ==",
+    ];
     if (state.agents.length === 0) {
       lines.push("No agents loaded yet.");
       return lines.join("\n");
@@ -4387,9 +4415,32 @@ export function OfficeScreen({
     () => mapWorkspaceAgentsToOfficeAgents(workspaceSnapshot?.agents ?? []),
     [workspaceSnapshot],
   );
+  const brokerAgentSeeds = useMemo(
+    () => mapWorkspaceAgentsToAgentSeeds(workspaceSnapshot?.agents ?? []),
+    [workspaceSnapshot],
+  );
+  useEffect(() => {
+    if (!WORKSPACE_BROKER_MODE) return;
+    hydrateAgents(
+      brokerAgentSeeds,
+      brokerAgentSeeds[0]?.agentId ?? undefined,
+    );
+    setAgentsLoaded(true);
+  }, [brokerAgentSeeds, hydrateAgents]);
   const visibleOfficeAgents = WORKSPACE_BROKER_MODE
     ? brokerOfficeAgents
     : allVisibleAgents;
+  const officeBrokerModeState = useMemo(
+    () =>
+      resolveOfficeBrokerModeState({
+        brokerMode: WORKSPACE_BROKER_MODE,
+        activeFloorId: activeFloor.id,
+        floorRosterCache,
+        brokerAgentSeeds,
+        selectedAdapterType,
+      }),
+    [activeFloor.id, brokerAgentSeeds, floorRosterCache, selectedAdapterType],
+  );
   const officeRuntimeStatus = WORKSPACE_BROKER_MODE
     ? (workspaceSnapshot?.broker.status ?? (workspaceBrokerError ? "degraded" : "idle"))
     : status;
@@ -4773,11 +4824,11 @@ export function OfficeScreen({
       ) : null}
       <OfficeFloorNav
         activeFloorId={activeFloor.id}
-        floorRosterCache={floorRosterCache}
+        floorRosterCache={officeBrokerModeState.floorRosterCache}
         onSelectFloor={(floorId) => {
           void handleSelectFloor(floorId);
         }}
-        activeAdapterType={(selectedAdapterType as FloorProvider) ?? null}
+        activeAdapterType={officeBrokerModeState.navAdapterType}
       />
       <section className="relative h-full min-h-0 min-w-0 overflow-hidden">
         <RetroOffice3D
@@ -4911,7 +4962,7 @@ export function OfficeScreen({
           taskBoardCronError={
             taskBoard.sharedTasksError ?? taskBoard.gatewayTasksError ?? taskBoard.cronError
           }
-          taskBoardCaptureDebug={showOpenClawConsole ? taskBoard.taskCaptureDebug : undefined}
+          taskBoardCaptureDebug={rawConsoleEnabled ? taskBoard.taskCaptureDebug : undefined}
           onTaskBoardCreateCard={() => {
             taskBoard.createManualCard();
           }}
@@ -5110,7 +5161,7 @@ export function OfficeScreen({
               cronError={
                 taskBoard.sharedTasksError ?? taskBoard.gatewayTasksError ?? taskBoard.cronError
               }
-              taskCaptureDebug={showOpenClawConsole ? taskBoard.taskCaptureDebug : undefined}
+              taskCaptureDebug={rawConsoleEnabled ? taskBoard.taskCaptureDebug : undefined}
               onCreateCard={() => {
                 taskBoard.createManualCard();
                 setActiveSidebarTab("kanban");
@@ -5195,7 +5246,7 @@ export function OfficeScreen({
         />
       ) : null}
 
-      {showOpenClawConsole ? (
+      {rawConsoleEnabled ? (
         <section className="pointer-events-auto fixed bottom-3 left-3 z-30 flex w-[520px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded border border-cyan-500/25 bg-black/78 shadow-2xl backdrop-blur">
           <div className="flex items-center justify-between border-b border-cyan-500/15 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
             <span>Agent Event Console</span>
@@ -5641,28 +5692,30 @@ export function OfficeScreen({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setChatOpen((prev) => !prev)}
-          className="flex items-center gap-1.5 rounded border border-amber-700/50 bg-[#0e0a04]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-amber-500/80 shadow-lg backdrop-blur transition-colors hover:border-amber-600/70 hover:text-amber-400"
-        >
-          {chatOpen ? (
-            <>
-              <ChevronDown className="h-3.5 w-3.5" />
-              <span>HIDE CHAT</span>
-            </>
-          ) : (
-            <>
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>CHAT</span>
-              {runningCount > 0 ? (
-                <span className="rounded bg-amber-500/20 px-1 text-[10px] text-amber-400">
-                  {runningCount}
-                </span>
-              ) : null}
-            </>
-          )}
-        </button>
+        {showOpenClawConsole ? (
+          <button
+            type="button"
+            onClick={() => setChatOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 rounded border border-amber-700/50 bg-[#0e0a04]/90 px-3 py-1.5 font-mono text-[11px] font-medium tracking-wider text-amber-500/80 shadow-lg backdrop-blur transition-colors hover:border-amber-600/70 hover:text-amber-400"
+          >
+            {chatOpen ? (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" />
+                <span>HIDE CHAT</span>
+              </>
+            ) : (
+              <>
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>CHAT</span>
+                {runningCount > 0 ? (
+                  <span className="rounded bg-amber-500/20 px-1 text-[10px] text-amber-400">
+                    {runningCount}
+                  </span>
+                ) : null}
+              </>
+            )}
+          </button>
+        ) : null}
       </div>
 
       {mainVoiceState !== "idle" || mainVoiceError ? (

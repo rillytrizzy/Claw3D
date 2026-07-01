@@ -1,7 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { mapWorkspaceAgentsToOfficeAgents } from "@/lib/office/workspaceAdapter";
+import {
+  mapWorkspaceAgentsToAgentSeeds,
+  mapWorkspaceAgentsToOfficeAgents,
+} from "@/lib/office/workspaceAdapter";
 import type { WorkspaceAgentRecord } from "@/lib/workspace-contract/types";
 import { useWorkspaceBroker } from "@/features/workspace/useWorkspaceBroker";
 import { fetchJson } from "@/lib/http";
@@ -117,6 +120,32 @@ describe("workspace adapter", () => {
       status: "error",
       subtitle: "Gateway latency rising",
       item: "Gateway latency rising",
+    });
+  });
+
+  it("maps workspace agents into store seeds for broker-mode chrome", () => {
+    const [seed] = mapWorkspaceAgentsToAgentSeeds([
+      makeAgent({
+        id: "agent-terminal",
+        name: "Terminal Operator",
+        role: "terminal-control",
+        capabilities: ["terminal.open"],
+      }),
+    ]);
+
+    expect(seed).toMatchObject({
+      agentId: "agent-terminal",
+      name: "Terminal Operator",
+      runtimeName: "Claw3D Broker",
+      identityName: "Terminal Operator",
+      sessionDisplayName: "Terminal Operator",
+      role: "terminal-control",
+      sessionKey: "workspace:agent-terminal",
+      avatarSeed: "agent-terminal",
+      model: "terminal.open",
+      thinkingLevel: "healthy",
+      toolCallingEnabled: true,
+      showThinkingTraces: false,
     });
   });
 });

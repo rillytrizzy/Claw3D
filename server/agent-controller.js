@@ -89,7 +89,7 @@ function validateRequestSource(source, options = {}) {
       ""
   ).trim();
 
-  if (sharedSecret && !safeCompare(sharedSecret, requestSecret)) {
+  if (!sharedSecret || !safeCompare(sharedSecret, requestSecret)) {
     return {
       allowed: false,
       reason: "shared_secret_required",

@@ -94,6 +94,9 @@ import {
   type OfficeLayoutPreset,
 } from "@/features/retro-office/core/furnitureDefaults";
 import {
+  resolveAgentSpawnMotion,
+} from "@/features/retro-office/core/agentSpawnMotion";
+import {
   clampPointToZone,
   DISTRICT_CAMERA_POSITION,
   DISTRICT_CAMERA_TARGET,
@@ -109,6 +112,7 @@ import {
   buildJanitorActorsForCue,
   pruneExpiredJanitorActors,
 } from "@/features/retro-office/core/janitors";
+import { shouldShowPixelHotelBackdrop } from "@/features/retro-office/core/pixelHotelBackdrop";
 import {
   createWallItem,
   getItemBaseSize,
@@ -1718,12 +1722,13 @@ function useAgentTick(
       } else {
         // New agent — spawn at a random position and plan path to first target.
         const { x: sx, y: sy } = pickSpawnPoint(agent.id);
+        const roamTarget = pickRoamPoint(agent.id);
         const serverRoomRoute = resolveServerRoomRoute(sx, sy);
         const smsBoothRoute = resolveSmsBoothRoute(smsBoothItem, sx, sy);
         const phoneBoothRoute = resolvePhoneBoothRoute(phoneBoothItem, sx, sy);
         const gymRoute = resolveGymRoute(sx, sy, gymWorkoutPos);
         const qaLabRoute = resolveQaLabRoute(sx, sy, qaStationPos);
-        const initialTarget =
+        const primaryTarget =
           effectiveStatus === "working"
             ? explicitMeetingHold && meetingTarget
               ? {
@@ -1755,28 +1760,24 @@ function useAgentTick(
                             x: serverRoomRoute.targetX,
                             y: serverRoomRoute.targetY,
                           }
-                        : (deskPos ?? { x: sx, y: sy })
-            : { x: sx, y: sy };
+                        : deskPos
+            : null;
+        const spawnMotion = resolveAgentSpawnMotion({
+          effectiveStatus,
+          spawnPoint: { x: sx, y: sy },
+          primaryTarget,
+          roamTarget,
+        });
         ns = {
           x: sx,
           y: sy,
-          targetX: initialTarget.x,
-          targetY: initialTarget.y,
-          path: planPath(sx, sy, initialTarget.x, initialTarget.y),
+          targetX: spawnMotion.targetX,
+          targetY: spawnMotion.targetY,
+          path: planPath(sx, sy, spawnMotion.targetX, spawnMotion.targetY),
           frame: 0,
           walkSpeed: WALK_SPEED * (0.7 + Math.random() * 0.6),
           phaseOffset: Math.random() * Math.PI * 2,
-          state:
-            effectiveStatus === "working" &&
-            (explicitMeetingHold ||
-              explicitGymHold ||
-              explicitSmsBoothHold ||
-              explicitPhoneBoothHold ||
-              explicitQaHold ||
-              explicitGithubHold ||
-              deskPos)
-              ? "walking"
-              : "standing",
+          state: spawnMotion.state,
           interactionTarget: explicitMeetingHold
             ? "meeting_room"
             : explicitGymHold
@@ -5361,9 +5362,14 @@ export function RetroOffice3D({
     cameraPresetRef.current = overviewPreset;
   }, [officeCenterSignal, overviewPreset]);
 
+  const showPixelHotelBackdrop = shouldShowPixelHotelBackdrop({
+    immersiveOverlayActive,
+    agentCount: agents.length,
+  });
+
   return (
     <div className="relative w-full h-full bg-[#1a1008] font-mono text-white overflow-hidden">
-      {!immersiveOverlayActive ? <PixelHotelBackdrop agents={agents} /> : null}
+      {showPixelHotelBackdrop ? <PixelHotelBackdrop agents={agents} /> : null}
       {/* 3D Canvas — fills everything. */}
       <div
         className="absolute inset-0 z-0"

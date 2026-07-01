@@ -1,4 +1,5 @@
 import type { OfficeAgent } from "@/features/retro-office/core/types";
+import type { AgentStoreSeed } from "@/features/agents/state/store";
 import type { WorkspaceAgentRecord } from "@/lib/workspace-contract/types";
 
 const stringToColor = (value: string) => {
@@ -56,3 +57,22 @@ export const mapWorkspaceAgentsToOfficeAgents = (
       avatarProfile: null,
     };
   });
+
+export const mapWorkspaceAgentsToAgentSeeds = (
+  agents: WorkspaceAgentRecord[],
+): AgentStoreSeed[] =>
+  agents.map((agent) => ({
+    agentId: agent.id,
+    name: agent.name,
+    runtimeName: "Claw3D Broker",
+    identityName: agent.name,
+    sessionDisplayName: agent.name,
+    role: agent.role,
+    sessionKey: `workspace:${agent.id}`,
+    avatarSeed: agent.id,
+    avatarProfile: null,
+    model: agent.capabilities[0] ?? null,
+    thinkingLevel: agent.health,
+    toolCallingEnabled: agent.capabilities.length > 0,
+    showThinkingTraces: false,
+  }));
