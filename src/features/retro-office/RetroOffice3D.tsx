@@ -28,6 +28,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { configureTextBuilder } from "troika-three-text";
 import * as THREE from "three";
+import { ThemeCycleButton } from "@/components/theme-toggle";
 import { SettingsPanel } from "@/features/office/components/panels/SettingsPanel";
 import { AtmImmersiveScreen } from "@/features/office/screens/AtmImmersiveScreen";
 import { GithubImmersiveScreen } from "@/features/office/screens/GithubImmersiveScreen";
@@ -7198,6 +7199,7 @@ export function RetroOffice3D({
           >
             {activeAdapterType} • {gatewayStatus}
           </div>
+          <ThemeCycleButton />
           {/* New Idea 7: Heatmap toggle. */}
           <button
             onClick={() => setHeatmapMode((p) => !p)}

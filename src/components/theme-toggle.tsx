@@ -128,3 +128,54 @@ export const ThemeToggle = () => {
     </div>
   );
 };
+
+const CYCLE_ORDER: ThemeId[] = ["midnight", "clean", "neon"];
+
+/**
+ * Compact single-button theme control that cycles midnight -> clean -> neon.
+ * Styled to match the RetroOffice3D overlay toolbar; pass `className` to
+ * override. Shares the same persistence/apply logic as {@link ThemeToggle}.
+ */
+export const ThemeCycleButton = ({ className }: { className?: string }) => {
+  const [theme, setTheme] = useState<ThemeId>("midnight");
+
+  useEffect(() => {
+    const initial = getStoredTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(initial);
+    applyTheme(initial);
+  }, []);
+
+  const cycle = () => {
+    // Read the live value from the DOM (the source of truth) rather than the
+    // React state closure, so rapid successive clicks advance correctly.
+    const current =
+      (document.documentElement.getAttribute("data-theme") as ThemeId | null) ?? theme;
+    const index = CYCLE_ORDER.indexOf(current);
+    const next = CYCLE_ORDER[(index + 1) % CYCLE_ORDER.length];
+    setTheme(next);
+    applyTheme(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    }
+  };
+
+  const active = THEMES.find((option) => option.id === theme) ?? THEMES[0];
+  const ActiveIcon = active.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={cycle}
+      title={`Theme: ${active.label} — click to change`}
+      aria-label={`Theme: ${active.label}`}
+      data-testid="theme-cycle-button"
+      className={
+        className ??
+        "flex h-7 w-7 items-center justify-center rounded-md border border-amber-900/20 bg-[#1c1610]/80 text-amber-500/40 backdrop-blur-sm transition-all hover:text-amber-400"
+      }
+    >
+      <ActiveIcon size={12} />
+    </button>
+  );
+};
