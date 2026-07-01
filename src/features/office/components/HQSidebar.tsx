@@ -70,7 +70,7 @@ export function HQSidebar({
         <button
           type="button"
           onClick={onToggle}
-          className="rounded-l-md border border-r-0 border-cyan-500/30 bg-[#06090d]/90 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] text-cyan-300 shadow-xl backdrop-blur transition-colors hover:border-cyan-400/50 hover:text-cyan-100"
+          className="rounded-l-md border border-r-0 border-cyan-500/30 bg-[color:var(--surface-1)]/85 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] text-cyan-300 shadow-xl backdrop-blur transition-colors hover:border-cyan-400/50 hover:text-cyan-100"
           aria-expanded={open}
           aria-label={open ? "Collapse headquarters sidebar" : "Open headquarters sidebar"}
         >
@@ -84,7 +84,7 @@ export function HQSidebar({
           onClick={() => {
             onOpenMarketplace();
           }}
-          className="rounded-l-md border border-r-0 border-fuchsia-500/25 bg-[#100611]/90 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] text-fuchsia-300/80 shadow-xl backdrop-blur transition-colors hover:border-fuchsia-400/45 hover:text-fuchsia-100"
+          className="rounded-l-md border border-r-0 border-fuchsia-500/25 bg-[color:var(--surface-1)]/85 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] text-fuchsia-300/80 shadow-xl backdrop-blur transition-colors hover:border-fuchsia-400/45 hover:text-fuchsia-100"
           aria-label="Open marketplace"
         >
           <span className="block leading-none [writing-mode:vertical-rl]">
@@ -102,8 +102,8 @@ export function HQSidebar({
           }}
           className={`rounded-l-md border border-r-0 px-1.5 py-2.5 font-mono text-[10px] font-semibold tracking-[0.2em] shadow-xl backdrop-blur transition-colors ${
             analyticsOnly
-              ? "border-amber-400/50 bg-[#1a1206]/95 text-amber-200"
-              : "border-amber-500/25 bg-[#120d06]/90 text-amber-300/80 hover:border-amber-400/45 hover:text-amber-100"
+              ? "border-amber-400/50 bg-[color:var(--surface-1)]/92 text-amber-200"
+              : "border-amber-500/25 bg-[color:var(--surface-1)]/85 text-amber-300/80 hover:border-amber-400/45 hover:text-amber-100"
           }`}
           aria-pressed={analyticsOnly}
           aria-label="Open analytics sidebar"
@@ -116,7 +116,7 @@ export function HQSidebar({
 
       {open ? (
         <div
-          className={`pointer-events-auto flex h-full flex-col border-l border-cyan-500/20 bg-black/85 shadow-2xl backdrop-blur ${
+          className={`pointer-events-auto flex h-full flex-col border-l border-cyan-500/20 bg-[color:var(--surface-1)]/92 shadow-2xl backdrop-blur ${
             boardLikeWidth ? "w-[min(94vw,1180px)]" : "w-56"
           }`}
         >
@@ -124,7 +124,7 @@ export function HQSidebar({
             <div className="font-mono text-[10px] font-semibold tracking-[0.32em] text-cyan-300/80">
               {analyticsOnly ? "ANALYTICS" : "HEADQUARTERS"}
             </div>
-            <div className="mt-1 font-mono text-[11px] text-white/45">
+            <div className="mt-1 font-mono text-[11px] text-muted-foreground">
               {analyticsOnly
                 ? "Cost, budgets, and performance intelligence."
                 : "Monitor outputs, runs, and schedules."}
@@ -179,7 +179,7 @@ export function HQSidebar({
                     className={`flex items-center justify-center gap-1 border-r border-cyan-500/10 px-2 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors last:border-r-0 ${
                       isActive
                         ? "bg-cyan-500/10 text-cyan-100"
-                        : "text-white/45 hover:bg-white/5 hover:text-white/80"
+                        : "text-muted-foreground hover:bg-white/5 hover:text-white/80"
                     }`}
                   >
                     <span>{TAB_LABELS[tab]}</span>

@@ -994,6 +994,29 @@ textarea:focus::-webkit-scrollbar {
   color: var(--foreground);
 }
 
+/* Floating HUD panels (floor directory, HQ rail) — theme-aware glass. */
+.hud-panel {
+  border: 1px solid color-mix(in oklch, var(--panel-border) 92%, transparent);
+  background: color-mix(in oklch, var(--surface-1) 84%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.hud-surface {
+  border: 1px solid color-mix(in oklch, var(--panel-border) 88%, transparent);
+  background: color-mix(in oklch, var(--surface-2) 45%, transparent);
+}
+
+.hud-surface:hover {
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--panel-border));
+  background: color-mix(in oklch, var(--surface-2) 70%, transparent);
+}
+
+.hud-surface-active {
+  border-color: color-mix(in oklch, var(--primary) 48%, transparent);
+  background: color-mix(in oklch, var(--primary) 14%, transparent);
+}
+
 .ui-segment {
   display: grid;
   gap: 0.45rem;

@@ -1319,7 +1319,7 @@ const AgentChatComposer = memo(function AgentChatComposer({
             </span>
           ) : null}
           <button
-            className="rounded border border-[color:var(--status-approval-border)] bg-[#0e0a04]/90 px-3 py-2 font-mono text-[12px] font-medium tracking-wider text-[color:var(--status-approval-fg)] shadow-lg backdrop-blur transition-colors hover:border-[color:var(--status-approval-border)] hover:text-[color:var(--status-approval-fg)] disabled:cursor-not-allowed disabled:border-border/30 disabled:bg-muted/20 disabled:text-muted-foreground"
+            className="rounded border border-[color:var(--status-approval-border)] bg-[color:var(--status-approval-bg)] px-3 py-2 font-mono text-[12px] font-medium tracking-wider text-[color:var(--status-approval-fg)] shadow-lg backdrop-blur transition-colors hover:border-[color:var(--status-approval-border)] hover:text-[color:var(--status-approval-fg)] disabled:cursor-not-allowed disabled:border-border/30 disabled:bg-muted/20 disabled:text-muted-foreground"
             type="button"
             onClick={onSend}
             disabled={sendDisabled}
