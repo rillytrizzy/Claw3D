@@ -7386,20 +7386,20 @@ export function RetroOffice3D({
               .map((ev) => (
                 <div
                   key={`${ev.id}-${ev.ts}`}
-                  className="pointer-events-none flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-[10px] font-mono backdrop-blur-sm"
+                  className="hud-surface pointer-events-none flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-mono"
                 >
-                  <span className="font-semibold text-amber-400/80">{ev.name}</span>
-                  <span className="text-amber-600/70">{ev.text}</span>
+                  <span className="font-semibold text-foreground">{ev.name}</span>
+                  <span className="text-muted-foreground">{ev.text}</span>
                 </div>
               ))}
 
-            <div className="pointer-events-auto w-full rounded-2xl border border-amber-800/35 bg-black/70 px-3 py-2 text-[11px] font-mono text-amber-100 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+            <div className="hud-panel pointer-events-auto w-full rounded-2xl px-3 py-2 text-[11px] font-mono text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
               <div className="flex items-center gap-3">
-                <span className="text-amber-300/90">{liveStatusDeck.gatewayLabel}</span>
-                <span className="text-amber-500/70">{liveStatusDeck.counts.working} working</span>
-                <span className="text-amber-500/70">{liveStatusDeck.counts.idle} idle</span>
-                <span className="text-amber-500/70">{liveStatusDeck.counts.error} error</span>
-                <span className="truncate text-amber-200/55">
+                <span className="font-semibold text-foreground">{liveStatusDeck.gatewayLabel}</span>
+                <span className="text-muted-foreground">{liveStatusDeck.counts.working} working</span>
+                <span className="text-muted-foreground">{liveStatusDeck.counts.idle} idle</span>
+                <span className="text-[color:var(--status-error-fg)]">{liveStatusDeck.counts.error} error</span>
+                <span className="truncate text-muted-foreground">
                   {liveStatusDeck.latestEvent
                     ? `${liveStatusDeck.latestEvent.name}: ${liveStatusDeck.latestEvent.text}`
                     : "No recent live signals"}
@@ -7407,20 +7407,20 @@ export function RetroOffice3D({
               </div>
 
               {liveStatusDeck.selectedAgent ? (
-                <div className="mt-2 flex items-center gap-2 border-t border-amber-900/40 pt-2">
+                <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-amber-100">
+                      <span className="font-semibold text-foreground">
                         {liveStatusDeck.selectedAgent.name}
                       </span>
-                      <span className="rounded-full border border-amber-700/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-amber-300/80">
+                      <span className="hud-surface rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                         {liveStatusDeck.selectedAgent.visibleStatus}
                       </span>
                       {liveStatusDeck.selectedAgent.isAttentionMarked ? (
-                        <span className="text-rose-300/80">attention</span>
+                        <span className="text-[color:var(--status-error-fg)]">attention</span>
                       ) : null}
                     </div>
-                    <div className="mt-1 text-[10px] text-amber-200/60">
+                    <div className="mt-1 text-[10px] text-muted-foreground">
                       {liveStatusDeck.selectedAgent.sceneState ?? "unknown posture"}
                       {" - "}
                       {liveStatusDeck.selectedAgent.lastSignalText ?? "No recent agent signal"}
@@ -7430,35 +7430,35 @@ export function RetroOffice3D({
                   <button
                     type="button"
                     onClick={() => setDeckAgentId(liveStatusDeck.selectedAgent!.id)}
-                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                    className="hud-btn rounded-full px-2 py-1"
                   >
                     Inspect
                   </button>
                   <button
                     type="button"
                     onClick={handleDeckFocus}
-                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                    className="hud-btn rounded-full px-2 py-1"
                   >
                     Focus
                   </button>
                   <button
                     type="button"
                     onClick={handleDeckFollow}
-                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                    className="hud-btn rounded-full px-2 py-1"
                   >
                     {liveStatusDeck.selectedAgent.isFollowed ? "Unfollow" : "Follow"}
                   </button>
                   <button
                     type="button"
                     onClick={handleDeckPing}
-                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                    className="hud-btn rounded-full px-2 py-1"
                   >
                     {liveStatusDeck.selectedAgent.isPingActive ? "Pinging" : "Ping"}
                   </button>
                   <button
                     type="button"
                     onClick={handleDeckAttention}
-                    className="rounded-full border border-amber-700/40 px-2 py-1 text-amber-200/80 hover:bg-amber-500/10"
+                    className="hud-btn rounded-full px-2 py-1"
                   >
                     {liveStatusDeck.selectedAgent.isAttentionMarked ? "Clear attention" : "Attention"}
                   </button>
