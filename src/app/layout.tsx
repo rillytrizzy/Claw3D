@@ -36,7 +36,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var d=t?t==='dark':m;document.documentElement.classList.toggle('dark',d);}catch(e){}})();",
+              "(function(){try{var t=localStorage.getItem('claw3d-theme');if(t!=='clean'&&t!=='midnight'&&t!=='neon'){var l=localStorage.getItem('theme');t=l==='light'?'clean':l==='dark'?'midnight':'midnight';}var e=document.documentElement;e.setAttribute('data-theme',t);e.classList.toggle('dark',t!=='clean');}catch(e){}})();",
           }}
         />
       </head>

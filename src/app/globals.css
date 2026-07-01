@@ -131,7 +131,13 @@
   --model-control-border: color-mix(in oklch, var(--action-bg) 34%, var(--sidebar-input-border));
 }
 
-.dark {
+/* Dark base — shared by the legacy `.dark` class and the `midnight`/`neon`
+   named themes. Named themes are selected via `data-theme` on <html>; the
+   `.dark` class is kept in sync (see theme-toggle.tsx) so Tailwind `dark:`
+   utilities and any legacy consumers still follow the palette. */
+.dark,
+:root[data-theme="midnight"],
+:root[data-theme="neon"] {
   --radius: 1rem;
   --neutral-tint-rgb: rgb(108 146 176);
   --neutral-tint: #6c92b0;
@@ -235,6 +241,49 @@
   --command-copy-hover-bg: color-mix(in oklch, #254056 82%, var(--surface-1));
   --command-copy-border: color-mix(in oklch, #406882 66%, transparent);
   --model-control-border: color-mix(in oklch, var(--action-bg) 48%, var(--sidebar-input-border));
+}
+
+/* Neon — vivid violet/magenta look on a dark base. Inherits the dark block
+   above (grouped selector) and overrides only the seed tokens; the many
+   color-mix()-derived tokens re-resolve against these at use time. */
+:root[data-theme="neon"] {
+  --neutral-tint-rgb: rgb(150 120 220);
+  --neutral-tint: #9678dc;
+  --background: #0a0714;
+  --foreground: rgb(240 236 255 / 0.97);
+  --card: #130f22;
+  --card-foreground: rgb(240 236 255 / 0.97);
+  --popover: #130f22;
+  --popover-foreground: rgb(240 236 255 / 0.94);
+  --primary: oklch(0.72 0.26 320);
+  --primary-foreground: oklch(0.99 0.01 320);
+  --accent: color-mix(in srgb, var(--neutral-tint-rgb) 24%, transparent);
+  --accent-foreground: rgb(240 236 255 / 0.95);
+  --destructive: oklch(0.66 0.25 18);
+  --border: color-mix(in srgb, var(--neutral-tint-rgb) 30%, transparent);
+  --input: color-mix(in srgb, var(--neutral-tint-rgb) 22%, transparent);
+  --ring: oklch(0.78 0.22 320);
+  --sidebar: #0e0a1c;
+  --sidebar-primary: oklch(0.72 0.26 320);
+  --sidebar-primary-foreground: oklch(0.99 0.01 320);
+  --sidebar-ring: oklch(0.78 0.22 320);
+  --surface-0: #0a0714;
+  --surface-1: #130f22;
+  --surface-2: #1c1633;
+  --surface-3: #271f45;
+  --surface-selected: #322659;
+  --surface-selected-border: #4a3a7d;
+  --chart-1: oklch(0.72 0.26 320);
+  --chart-2: oklch(0.78 0.18 190);
+  --chart-3: oklch(0.7 0.2 265);
+  --chart-4: oklch(0.8 0.16 200);
+  --chart-5: oklch(0.68 0.22 300);
+  --status-running-bg: color-mix(in oklch, #17d99a 22%, transparent);
+  --status-running-border: color-mix(in oklch, #23f0ad 46%, transparent);
+  --status-running-fg: color-mix(in oklch, #8ff5d3 70%, white 30%);
+  --status-connected-bg: color-mix(in oklch, #8a5cf6 26%, transparent);
+  --status-connected-border: color-mix(in oklch, #a06bff 52%, transparent);
+  --status-connected-fg: color-mix(in oklch, #d7c4ff 72%, white 28%);
 }
 
 @theme inline {
