@@ -3,7 +3,7 @@
     "id": "primary",
     "label": "Primary Workspace",
     "schemaVersion": 1,
-    "updatedAt": "2026-05-21T16:33:45.645Z"
+    "updatedAt": "2026-07-01T00:00:00.000Z"
   },
   "broker": {
     "status": "ready",
@@ -14,105 +14,131 @@
       "marketplace": true,
       "n8n": true
     },
-    "lastHeartbeatAt": "2026-05-21T16:33:45.636Z",
+    "lastHeartbeatAt": "2026-07-01T00:00:00.000Z",
     "lastError": null
   },
   "agents": [
     {
-      "id": "agent-terminal",
-      "name": "Terminal Operator",
-      "role": "terminal-control",
+      "id": "agent-hermes",
+      "name": "Hermes",
+      "role": "gateway",
       "repoPath": "C:\\Users\\b_bar\\claw3d",
       "status": "working",
       "intentState": "running",
-      "currentTask": "open-terminal: workspace-shell",
-      "capabilities": [
-        "terminal.open"
-      ],
-      "availableAutomations": [],
-      "terminalTargets": [
-        "workspace-shell"
-      ],
+      "currentTask": "RTOS gateway live on :18789 (6 hooks)",
+      "capabilities": ["terminal.open", "automation.run", "n8n.trigger"],
+      "availableAutomations": ["workspace-refresh"],
+      "terminalTargets": ["workspace-shell"],
+      "marketplaceScopes": ["local-tools"],
+      "n8nFlows": ["daily-sync"],
+      "health": "healthy",
+      "lastEvent": "Adapter health ok — 6 RTOS hooks registered",
+      "sceneProfile": { "area": "ops", "pose": "standing", "attention": false }
+    },
+    {
+      "id": "agent-claude-code",
+      "name": "Claude Code",
+      "role": "builder",
+      "repoPath": "C:\\Users\\b_bar\\claw3d",
+      "status": "working",
+      "intentState": "running",
+      "currentTask": "Shipping the Claw3D UI overhaul (ui-overhaul)",
+      "capabilities": ["repo.run", "terminal.open"],
+      "availableAutomations": ["local-script"],
+      "terminalTargets": ["workspace-shell"],
       "marketplaceScopes": [],
       "n8nFlows": [],
       "health": "healthy",
-      "lastEvent": "Opened terminal target workspace-shell",
-      "sceneProfile": {
-        "area": "ops",
-        "pose": "standing",
-        "attention": false
-      }
+      "lastEvent": "Committed 6101e9a — 3D scene lighting polish",
+      "sceneProfile": { "area": "builder", "pose": "standing", "attention": false }
     },
     {
-      "id": "agent-repo",
-      "name": "Repo Builder",
-      "role": "repo-agent",
+      "id": "agent-codex",
+      "name": "Codex",
+      "role": "code-writer",
       "repoPath": "C:\\Users\\b_bar\\claw3d",
       "status": "idle",
       "intentState": null,
-      "currentTask": "Ready for repo actions",
-      "capabilities": [
-        "repo.run"
-      ],
-      "availableAutomations": [
-        "local-script"
-      ],
+      "currentTask": "Vault git writer / script execution — standing by",
+      "capabilities": ["repo.run"],
+      "availableAutomations": ["local-script"],
       "terminalTargets": [],
       "marketplaceScopes": [],
       "n8nFlows": [],
       "health": "healthy",
       "lastEvent": "Broker roster loaded",
-      "sceneProfile": {
-        "area": "builder",
-        "pose": "standing",
-        "attention": false
-      }
+      "sceneProfile": { "area": "builder", "pose": "standing", "attention": false }
     },
     {
-      "id": "agent-automation",
-      "name": "Automation Router",
-      "role": "automation",
+      "id": "agent-agy",
+      "name": "Agy",
+      "role": "scribe",
       "repoPath": null,
       "status": "idle",
       "intentState": null,
-      "currentTask": "Ready for local automation and n8n flows",
-      "capabilities": [
-        "automation.run",
-        "n8n.trigger"
-      ],
-      "availableAutomations": [
-        "workspace-refresh"
-      ],
+      "currentTask": "Gemini scribe — documentation sync",
+      "capabilities": [],
+      "availableAutomations": [],
       "terminalTargets": [],
-      "marketplaceScopes": [
-        "local-tools"
-      ],
-      "n8nFlows": [
-        "daily-sync"
-      ],
+      "marketplaceScopes": [],
+      "n8nFlows": [],
       "health": "healthy",
       "lastEvent": "Broker roster loaded",
-      "sceneProfile": {
-        "area": "automation",
-        "pose": "standing",
-        "attention": false
-      }
-    }
-  ],
-  "actions": [
+      "sceneProfile": { "area": "automation", "pose": "standing", "attention": false }
+    },
     {
-      "id": "0264a78e-7310-43c4-b8a9-d532e0fdc0db",
-      "agentId": "agent-terminal",
-      "type": "open-terminal",
-      "target": "workspace-shell",
-      "lifecycle": "running",
-      "createdAt": "2026-05-21T16:33:45.636Z",
-      "updatedAt": "2026-05-21T16:33:45.645Z",
-      "executor": "terminal",
-      "resultSummary": "Opened terminal target workspace-shell",
-      "errorSummary": null
+      "id": "agent-claude",
+      "name": "Claude",
+      "role": "planner",
+      "repoPath": null,
+      "status": "idle",
+      "intentState": null,
+      "currentTask": "Planning & AFK steering",
+      "capabilities": [],
+      "availableAutomations": [],
+      "terminalTargets": [],
+      "marketplaceScopes": [],
+      "n8nFlows": [],
+      "health": "healthy",
+      "lastEvent": "Broker roster loaded",
+      "sceneProfile": { "area": "workspace", "pose": "standing", "attention": false }
+    },
+    {
+      "id": "agent-chatgpt",
+      "name": "ChatGPT",
+      "role": "assistant",
+      "repoPath": null,
+      "status": "idle",
+      "intentState": null,
+      "currentTask": "Assistant — presence only (not wired to broker)",
+      "capabilities": [],
+      "availableAutomations": [],
+      "terminalTargets": [],
+      "marketplaceScopes": [],
+      "n8nFlows": [],
+      "health": "healthy",
+      "lastEvent": "Broker roster loaded",
+      "sceneProfile": { "area": "workspace", "pose": "standing", "attention": false }
+    },
+    {
+      "id": "agent-gemini",
+      "name": "Gemini",
+      "role": "research",
+      "repoPath": null,
+      "status": "idle",
+      "intentState": null,
+      "currentTask": "Research — presence only (not wired to broker)",
+      "capabilities": [],
+      "availableAutomations": [],
+      "terminalTargets": [],
+      "marketplaceScopes": [],
+      "n8nFlows": [],
+      "health": "healthy",
+      "lastEvent": "Broker roster loaded",
+      "sceneProfile": { "area": "workspace", "pose": "standing", "attention": false }
     }
   ],
+  "actions": [],
   "sessions": [],
   "terminal": {
     "available": false,

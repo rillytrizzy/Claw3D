@@ -1,0 +1,49 @@
+# Deploy THIS fork's build (your theme work + 7-agent roster), routed to the
+# Hermes adapter running on the host, with persistent Studio + workspace state.
+#
+#   1) Start Docker Desktop (daemon must be running)
+#   2) Keep the host Hermes adapter up:  npm run hermes-adapter   (listens :18789)
+#   3) docker compose up -d --build
+#   4) open http://localhost:3000/office
+#
+# Optional voice: copy .env.docker.example -> .env and fill ELEVENLABS_* keys.
+
+services:
+  claw3d:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: claw3d-rillytrizzy:latest
+    container_name: claw3d
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # Lets the container reach services on the host (the Hermes adapter).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      # --- Routing: point the Studio gateway at the HOST's Hermes adapter ---
+      CLAW3D_GATEWAY_ADAPTER_TYPE: hermes
+      CLAW3D_GATEWAY_URL: ws://host.docker.internal:18789
+      HERMES_API_URL: http://host.docker.internal:8642
+      # --- Optional in-office voice (empty = disabled) ---
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-}
+    volumes:
+      # Persist Studio settings: office layout, desk assignments, gateway prefs.
+      - claw3d-studio:/root/.openclaw/claw3d
+      # Persist the workspace-broker contract: roster, actions, history.
+      - claw3d-workspace:/app/.claw3d-workspace
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/office').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  claw3d-studio:
+  claw3d-workspace:
