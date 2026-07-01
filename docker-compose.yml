@@ -24,6 +24,13 @@ services:
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
+      # Bind to all interfaces inside the container so the host port publish works
+      # (the custom server defaults to localhost, unreachable from outside).
+      HOST: 0.0.0.0
+      PORT: "3000"
+      # Required to bind a public host: gates access behind a `studio_access`
+      # cookie == this token. Value lives in gitignored .env (compose auto-loads).
+      STUDIO_ACCESS_TOKEN: ${STUDIO_ACCESS_TOKEN:-}
       # --- Routing: point the Studio gateway at the HOST's Hermes adapter ---
       CLAW3D_GATEWAY_ADAPTER_TYPE: hermes
       CLAW3D_GATEWAY_URL: ws://host.docker.internal:18789
@@ -38,7 +45,7 @@ services:
       # Persist the workspace-broker contract: roster, actions, history.
       - claw3d-workspace:/app/.claw3d-workspace
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/office').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/office',{headers:{cookie:'studio_access='+(process.env.STUDIO_ACCESS_TOKEN||'')}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 5
