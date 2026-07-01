@@ -1,0 +1,8 @@
+# Local front proxy: publishes :3000 and injects the Studio access cookie so you
+# can open http://localhost:3000/office directly (no DevTools cookie step).
+# The claw3d container stays token-gated; only this trusted local proxy adds it.
+:3000 {
+	reverse_proxy claw3d:3000 {
+		header_up Cookie "studio_access={$STUDIO_ACCESS_TOKEN}"
+	}
+}

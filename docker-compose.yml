@@ -16,8 +16,8 @@ services:
     image: claw3d-rillytrizzy:latest
     container_name: claw3d
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     # Lets the container reach services on the host (the Hermes adapter).
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -50,6 +50,22 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+
+  # Local front proxy — publishes :3000 and injects the studio_access cookie so
+  # http://localhost:3000/office works with no manual cookie step. The claw3d
+  # container stays token-gated; only this trusted local proxy supplies the token.
+  caddy:
+    image: caddy:2-alpine
+    container_name: claw3d-proxy
+    restart: unless-stopped
+    depends_on:
+      - claw3d
+    ports:
+      - "3000:3000"
+    environment:
+      STUDIO_ACCESS_TOKEN: ${STUDIO_ACCESS_TOKEN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
 volumes:
   claw3d-studio:
