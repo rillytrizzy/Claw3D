@@ -943,6 +943,57 @@ textarea:focus::-webkit-scrollbar {
   color: color-mix(in oklch, var(--foreground) 88%, var(--muted-foreground) 12%);
 }
 
+/* Office HUD overlay — theme-aware toolbar/status surfaces (RetroOffice3D).
+   Replaces the previously hardcoded amber glass so the HUD follows the
+   selected theme (midnight/clean/neon). */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-small);
+  border: 1px solid color-mix(in oklch, var(--panel-border) 90%, transparent);
+  background: color-mix(in oklch, var(--surface-1) 80%, transparent);
+  color: color-mix(in oklch, var(--foreground) 60%, var(--muted-foreground) 40%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.hud-btn:hover {
+  color: var(--foreground);
+  border-color: color-mix(in oklch, var(--primary) 45%, var(--panel-border));
+}
+
+.hud-btn-active {
+  background: color-mix(in oklch, var(--primary) 24%, transparent);
+  border-color: color-mix(in oklch, var(--primary) 52%, transparent);
+  color: color-mix(in oklch, var(--primary) 80%, var(--foreground));
+}
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--radius-small);
+  border: 1px solid color-mix(in oklch, var(--primary) 40%, var(--panel-border));
+  background: color-mix(in oklch, var(--primary) 12%, var(--surface-1));
+  color: color-mix(in oklch, var(--primary) 78%, var(--foreground));
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.hud-chip:hover {
+  border-color: color-mix(in oklch, var(--primary) 58%, transparent);
+  color: var(--foreground);
+}
+
 .ui-segment {
   display: grid;
   gap: 0.45rem;

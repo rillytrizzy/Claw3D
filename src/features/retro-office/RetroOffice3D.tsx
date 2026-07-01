@@ -7181,20 +7181,34 @@ export function RetroOffice3D({
             <button
               onClick={onAddAgent}
               title="Add agent"
-              className="flex h-7 items-center justify-center gap-1 rounded-md border border-cyan-500/35 bg-[#071018]/92 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-200 transition-all backdrop-blur-sm hover:border-cyan-400/55 hover:text-white"
+              className="hud-chip h-7 px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
             >
               <UserPlus size={12} />
               <span>Add</span>
             </button>
           ) : null}
           <div
-            className={`flex h-7 items-center rounded-md border px-2 text-[10px] font-mono uppercase tracking-[0.12em] ${
-              gatewayStatus === "connected"
-                ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                : gatewayStatus === "connecting"
-                  ? "border-amber-400/25 bg-amber-500/10 text-amber-100"
-                  : "border-rose-400/25 bg-rose-500/10 text-rose-100"
-            }`}
+            className="flex h-7 items-center rounded-md border px-2 text-[10px] font-mono uppercase tracking-[0.12em] backdrop-blur-sm"
+            style={{
+              borderColor:
+                gatewayStatus === "connected"
+                  ? "var(--status-connected-border)"
+                  : gatewayStatus === "connecting"
+                    ? "var(--status-connecting-border)"
+                    : "var(--status-disconnected-border)",
+              background:
+                gatewayStatus === "connected"
+                  ? "var(--status-connected-bg)"
+                  : gatewayStatus === "connecting"
+                    ? "var(--status-connecting-bg)"
+                    : "var(--status-disconnected-bg)",
+              color:
+                gatewayStatus === "connected"
+                  ? "var(--status-connected-fg)"
+                  : gatewayStatus === "connecting"
+                    ? "var(--status-connecting-fg)"
+                    : "var(--status-disconnected-fg)",
+            }}
             title={`Runtime: ${activeAdapterType} (${gatewayStatus})`}
           >
             {activeAdapterType} • {gatewayStatus}
@@ -7204,14 +7218,14 @@ export function RetroOffice3D({
           <button
             onClick={() => setHeatmapMode((p) => !p)}
             title="Toggle heatmap"
-            className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${heatmapMode ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
+            className={`hud-btn h-7 w-7 ${heatmapMode ? "hud-btn-active" : ""}`}
           >
             <MapIcon size={12} />
           </button>
           <button
             onClick={() => setTrailMode((p) => !p)}
             title="Toggle trails"
-            className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${trailMode ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
+            className={`hud-btn h-7 w-7 ${trailMode ? "hud-btn-active" : ""}`}
           >
             <Maximize size={12} />
           </button>
@@ -7219,7 +7233,7 @@ export function RetroOffice3D({
           <button
             onClick={toggleEdit}
             title={editMode ? "Done editing" : "Edit office"}
-            className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${editMode ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
+            className={`hud-btn h-7 w-7 ${editMode ? "hud-btn-active" : ""}`}
           >
             {editMode ? (
               <Check size={12} strokeWidth={2.5} />
@@ -7230,7 +7244,7 @@ export function RetroOffice3D({
           <button
             onClick={() => setSettingsModalOpen(true)}
             title="Voice reply settings"
-            className={`w-7 h-7 flex items-center justify-center rounded-md transition-all backdrop-blur-sm border ${settingsModalOpen ? "bg-amber-500/30 text-amber-300 border-amber-500/50" : "bg-[#1c1610]/80 text-amber-500/40 border-amber-900/20 hover:text-amber-400"}`}
+            className={`hud-btn h-7 w-7 ${settingsModalOpen ? "hud-btn-active" : ""}`}
           >
             <Settings2 size={12} />
           </button>

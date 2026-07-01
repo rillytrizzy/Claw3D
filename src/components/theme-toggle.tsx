@@ -170,10 +170,7 @@ export const ThemeCycleButton = ({ className }: { className?: string }) => {
       title={`Theme: ${active.label} — click to change`}
       aria-label={`Theme: ${active.label}`}
       data-testid="theme-cycle-button"
-      className={
-        className ??
-        "flex h-7 w-7 items-center justify-center rounded-md border border-amber-900/20 bg-[#1c1610]/80 text-amber-500/40 backdrop-blur-sm transition-all hover:text-amber-400"
-      }
+      className={className ?? "hud-btn h-7 w-7"}
     >
       <ActiveIcon size={12} />
     </button>
