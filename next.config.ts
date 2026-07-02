@@ -14,9 +14,12 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https:",
       // 'unsafe-eval' is required by Next.js dev mode (source maps, HMR).
       // In production it is dropped — React and Three.js do not need eval.
+      // 'wasm-unsafe-eval' is kept in both: drei's useGLTF always wires up
+      // MeshoptDecoder, a WASM module, and its instantiation is gated behind
+      // this directive even when full JS eval is disallowed.
       ...(process.env.NODE_ENV !== "production"
-        ? ["script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:"]
-        : ["script-src 'self' 'unsafe-inline' blob:"]),
+        ? ["script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:"]
+        : ["script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:"]),
       // connect-src is intentionally broad: gateway URLs are user-configured
       // at runtime and cannot be enumerated at build time.
       // Restrict further when a fixed deployment target is known.
