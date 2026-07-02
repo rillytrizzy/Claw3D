@@ -140,7 +140,7 @@ describe("workspace adapter", () => {
       identityName: "Terminal Operator",
       sessionDisplayName: "Terminal Operator",
       role: "terminal-control",
-      sessionKey: "workspace:agent-terminal",
+      sessionKey: "agent:agent-terminal:main",
       avatarSeed: "agent-terminal",
       model: "terminal.open",
       thinkingLevel: "healthy",

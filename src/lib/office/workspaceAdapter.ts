@@ -1,6 +1,7 @@
 import type { OfficeAgent } from "@/features/retro-office/core/types";
 import type { AgentStoreSeed } from "@/features/agents/state/store";
 import type { WorkspaceAgentRecord } from "@/lib/workspace-contract/types";
+import { buildAgentMainSessionKey } from "@/lib/gateway/GatewayClient";
 
 const stringToColor = (value: string) => {
   let hash = 0;
@@ -68,7 +69,7 @@ export const mapWorkspaceAgentsToAgentSeeds = (
     identityName: agent.name,
     sessionDisplayName: agent.name,
     role: agent.role,
-    sessionKey: `workspace:${agent.id}`,
+    sessionKey: buildAgentMainSessionKey(agent.id, "main"),
     avatarSeed: agent.id,
     avatarProfile: null,
     model: agent.capabilities[0] ?? null,

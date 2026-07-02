@@ -19,6 +19,13 @@
  *   HERMES_ADAPTER_PORT   WebSocket port              (default: 18789)
  *   HERMES_MODEL          Model identifier            (default: hermes)
  *   HERMES_AGENT_NAME     Display name in Claw3D UI   (default: Hermes)
+ *
+ * Office "presence" personas (ChatGPT/Gemini/Claude/Agy) bypass the Hermes
+ * orchestrator entirely and call their real vendor API directly — see
+ * ./persona-vendors.js. Each is independently optional:
+ *   OPENAI_API_KEY        Powers the ChatGPT persona   (default: empty — persona replies with a config error)
+ *   ANTHROPIC_API_KEY     Powers the Claude persona    (default: empty — persona replies with a config error)
+ *   GEMINI_API_KEY        Powers Gemini + Agy personas (default: empty — persona replies with a config error)
  */
 
 const http = require("http");
@@ -27,6 +34,7 @@ const fs = require("fs");
 const path = require("path");
 const { WebSocketServer } = require("ws");
 const { createAgentController } = require("./agent-controller");
+const { callPersonaVendor } = require("./persona-vendors");
 
 function loadDotenvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -119,6 +127,20 @@ When given a goal:
 
 Each spawned agent will appear as an animated character in the 3D office — walking when active, standing when idle.
 Be concise in your responses to the user; do the heavy lifting via tool calls.`;
+
+// ---------------------------------------------------------------------------
+// Persona system prompts (ChatGPT/Gemini/Claude/Agy) — real vendor-backed,
+// no tool calling, see runPersonaTurn() + persona-vendors.js.
+// ---------------------------------------------------------------------------
+
+const CHATGPT_SYSTEM_PROMPT =
+  "You are ChatGPT, a general-purpose assistant present in a virtual 3D office alongside other AI agents. Answer directly and concisely.";
+const GEMINI_SYSTEM_PROMPT =
+  "You are Gemini, a research-focused agent present in a virtual 3D office. Favor sourced, well-reasoned answers.";
+const CLAUDE_SYSTEM_PROMPT =
+  "You are Claude, a planning-focused agent present in a virtual 3D office. Help structure plans and steer work when the operator is away.";
+const AGY_SYSTEM_PROMPT =
+  "You are Agy, a documentation scribe present in a virtual 3D office. Keep notes and summaries clear, accurate, and concise.";
 
 // ---------------------------------------------------------------------------
 // Team management tools definition (OpenAI tool-calling format)
@@ -243,7 +265,7 @@ const cronJobs = new Map();
 /**
  * @type {Map<string, {
  *   id: string, name: string, workspace: string,
- *   role?: string, systemPrompt?: string,
+ *   role?: string, systemPrompt?: string, vendor?: "openai"|"anthropic"|"google",
  *   settings: { wipe: boolean, continuity: boolean, model: string, boundaries?: string }
  * }>}
  */
@@ -255,6 +277,44 @@ const agentRegistry = new Map([
     role: "Orchestrator",
     systemPrompt: ORCHESTRATOR_SYSTEM_PROMPT,
     settings: { wipe: false, continuity: true, model: HERMES_MODEL },
+  }],
+  // Office presence personas — vendor set means chat.send routes to
+  // runPersonaTurn() (real vendor API call) instead of runAgenticLoop().
+  ["agent-chatgpt", {
+    id: "agent-chatgpt",
+    name: "ChatGPT",
+    workspace: `${HOME}/.hermes/workspace-agent-chatgpt`,
+    role: "assistant",
+    systemPrompt: CHATGPT_SYSTEM_PROMPT,
+    vendor: "openai",
+    settings: { wipe: false, continuity: true, model: process.env.OPENAI_MODEL || "" },
+  }],
+  ["agent-gemini", {
+    id: "agent-gemini",
+    name: "Gemini",
+    workspace: `${HOME}/.hermes/workspace-agent-gemini`,
+    role: "research",
+    systemPrompt: GEMINI_SYSTEM_PROMPT,
+    vendor: "google",
+    settings: { wipe: false, continuity: true, model: process.env.GEMINI_MODEL || "" },
+  }],
+  ["agent-claude", {
+    id: "agent-claude",
+    name: "Claude",
+    workspace: `${HOME}/.hermes/workspace-agent-claude`,
+    role: "planner",
+    systemPrompt: CLAUDE_SYSTEM_PROMPT,
+    vendor: "anthropic",
+    settings: { wipe: false, continuity: true, model: process.env.ANTHROPIC_MODEL || "" },
+  }],
+  ["agent-agy", {
+    id: "agent-agy",
+    name: "Agy",
+    workspace: `${HOME}/.hermes/workspace-agent-agy`,
+    role: "scribe",
+    systemPrompt: AGY_SYSTEM_PROMPT,
+    vendor: "google",
+    settings: { wipe: false, continuity: true, model: process.env.GEMINI_MODEL || "" },
   }],
 ]);
 
@@ -842,6 +902,33 @@ async function runAgenticLoop({ sessionKey, agentId, userMessage, model, tools, 
   return finalText;
 }
 
+// One-shot, non-streaming turn for office presence personas (ChatGPT/Gemini/
+// Claude/Agy) — real vendor API call, no tool calling. Sibling to
+// runAgenticLoop(), kept separate so persona wiring can't affect the
+// Hermes orchestrator's tool-calling path.
+async function runPersonaTurn({ sessionKey, agentId, userMessage, model }) {
+  const agent = agentRegistry.get(agentId);
+  const history = getHistory(sessionKey);
+  const contextHistory = agent?.settings?.wipe ? [] : [...history];
+
+  const result = await callPersonaVendor(agent.vendor, {
+    systemPrompt: agent.systemPrompt || null,
+    history: contextHistory,
+    userMessage,
+    model: model || agent.settings?.model || null,
+  });
+
+  if (result.error) throw new Error(result.error);
+
+  if (agent?.settings?.continuity !== false) {
+    history.push({ role: "user", content: userMessage });
+    history.push({ role: "assistant", content: result.text });
+    saveHistoryToDisk();
+  }
+
+  return result.text;
+}
+
 // ---------------------------------------------------------------------------
 // Frame builders
 // ---------------------------------------------------------------------------
@@ -1119,8 +1206,13 @@ async function handleMethod(method, params, id, sendEvent, requestSource = null)
       });
 
       setImmediate(async () => {
+        // Persona agents (agent?.vendor set) must NOT fall back to
+        // HERMES_MODEL ("hermes") — that's not a valid model id for any
+        // vendor. Let runPersonaTurn -> persona-vendors.js apply its own
+        // per-vendor default when nothing more specific is configured.
         const model = (sessionSettings.get(sessionKey) || {}).model
-          || agent?.settings?.model || HERMES_MODEL;
+          || agent?.settings?.model
+          || (agent?.vendor ? null : HERMES_MODEL);
         let seqCounter = 0;
 
         const emitChat = (state, extra) => {
@@ -1136,11 +1228,13 @@ async function handleMethod(method, params, id, sendEvent, requestSource = null)
           // Only the orchestrator gets team management tools
           const tools = isOrchestrator ? TEAM_TOOLS : [];
 
-          const finalText = await runAgenticLoop({
-            sessionKey, agentId: sessionAgentId, userMessage,
-            model, tools, emitDelta: onTextDelta,
-            abortCheck: () => aborted, sendEvent,
-          });
+          const finalText = agent?.vendor
+            ? await runPersonaTurn({ sessionKey, agentId: sessionAgentId, userMessage, model })
+            : await runAgenticLoop({
+                sessionKey, agentId: sessionAgentId, userMessage,
+                model, tools, emitDelta: onTextDelta,
+                abortCheck: () => aborted, sendEvent,
+              });
 
           if (aborted) {
             emitChat("aborted", {});
