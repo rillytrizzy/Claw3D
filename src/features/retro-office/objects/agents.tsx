@@ -1,4 +1,4 @@
-import { Billboard, Text } from "@react-three/drei";
+import { Billboard, Text, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { memo, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -13,6 +13,25 @@ import type {
   RenderAgent,
 } from "@/features/retro-office/core/types";
 import { AgentModelProps } from "@/features/retro-office/objects/types";
+
+// Poly Pizza CC-BY 3.0 models — see public/office-assets/models/props/ATTRIBUTION.md
+const HELD_PROP_GLB = {
+  broom: "/office-assets/models/props/broom.glb",
+  vacuum: "/office-assets/models/props/vacuum.glb",
+  mopBucket: "/office-assets/models/props/mopBucket.glb",
+  paddle: "/office-assets/models/props/paddle.glb",
+} as const;
+
+// Raw model bounding boxes vary per source file; these normalize each prop to
+// a believable size relative to the ~0.6-unit-tall agent body (pre-AGENT_SCALE).
+const HELD_PROP_SCALE = {
+  broom: 0.052,
+  vacuum: 0.066,
+  mopBucket: 0.178,
+  paddle: 0.024,
+} as const;
+
+for (const path of Object.values(HELD_PROP_GLB)) useGLTF.preload(path);
 
 const MAX_NAMEPLATE_TEXT_LENGTH = 10;
 const MAX_SPEECH_BUBBLE_TEXT_LENGTH = 180;
@@ -82,20 +101,51 @@ export const AgentModel = memo(function AgentModel({
   const leftBrowRef = useRef<THREE.Mesh>(null);
   const rightBrowRef = useRef<THREE.Mesh>(null);
   const heldPaddleRef = useRef<THREE.Group>(null);
-  const heldPaddleFaceRef = useRef<THREE.MeshStandardMaterial>(null);
   const heldCleaningToolRef = useRef<THREE.Group>(null);
-  const heldCleaningHeadRef = useRef<THREE.MeshStandardMaterial>(null);
   const heldBucketRef = useRef<THREE.Group>(null);
   const heldScrubberRef = useRef<THREE.Group>(null);
   const speechBubbleRef = useRef<THREE.Group>(null);
   const speechBubbleMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const awayBubbleRef = useRef<THREE.Group>(null);
-  const bodyMatRef = useRef<THREE.MeshLambertMaterial>(null);
+  const bodyMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const pos = useRef(new THREE.Vector3(0, 0, 0));
   const resolvedAppearance = useMemo(
     () => appearance ?? createDefaultAgentAvatarProfile(agentId),
     [agentId, appearance],
   );
+
+  const broomGltf = useGLTF(HELD_PROP_GLB.broom);
+  const vacuumGltf = useGLTF(HELD_PROP_GLB.vacuum);
+  const mopBucketGltf = useGLTF(HELD_PROP_GLB.mopBucket);
+  const paddleGltf = useGLTF(HELD_PROP_GLB.paddle);
+  const broomScene = useMemo(
+    () => broomGltf.scene.clone(true),
+    [broomGltf.scene],
+  );
+  const vacuumScene = useMemo(
+    () => vacuumGltf.scene.clone(true),
+    [vacuumGltf.scene],
+  );
+  const mopBucketScene = useMemo(
+    () => mopBucketGltf.scene.clone(true),
+    [mopBucketGltf.scene],
+  );
+  const paddleScene = useMemo(
+    () => paddleGltf.scene.clone(true),
+    [paddleGltf.scene],
+  );
+  const paddleMaterial = useMemo<THREE.MeshStandardMaterial | null>(() => {
+    let material: THREE.MeshStandardMaterial | null = null;
+    paddleScene.traverse((child) => {
+      if (material || !(child instanceof THREE.Mesh)) return;
+      const cloned = (
+        Array.isArray(child.material) ? child.material[0] : child.material
+      ).clone() as THREE.MeshStandardMaterial;
+      child.material = cloned;
+      material = cloned;
+    });
+    return material;
+  }, [paddleScene]);
 
   useFrame(() => {
     const agent =
@@ -361,7 +411,7 @@ export const AgentModel = memo(function AgentModel({
       groupRef.current.traverse((child) => {
         if (
           child instanceof THREE.Mesh &&
-          child.material instanceof THREE.MeshLambertMaterial
+          child.material instanceof THREE.MeshStandardMaterial
         ) {
           child.material.transparent = isAway;
           child.material.opacity = isAway ? 0.45 : 1;
@@ -521,8 +571,8 @@ export const AgentModel = memo(function AgentModel({
       }
     }
 
-    if (heldPaddleFaceRef.current) {
-      heldPaddleFaceRef.current.color.set(
+    if (paddleMaterial) {
+      paddleMaterial.color.set(
         agent.pingPongSide === 0 ? "#1f4fa8" : "#c53b30",
       );
     }
@@ -540,10 +590,6 @@ export const AgentModel = memo(function AgentModel({
         );
         heldCleaningToolRef.current.rotation.set(-0.8, 0.18, -0.18);
       }
-    }
-
-    if (heldCleaningHeadRef.current) {
-      heldCleaningHeadRef.current.color.set("#facc15");
     }
 
     if (heldBucketRef.current) {
@@ -703,30 +749,30 @@ export const AgentModel = memo(function AgentModel({
           <>
             <mesh position={[0, 0.03, 0]}>
               <boxGeometry args={[0.07, 0.08, 0.08]} />
-              <meshLambertMaterial color={trouserColor} />
+              <meshStandardMaterial roughness={0.68} metalness={0.04} color={trouserColor} />
             </mesh>
             <mesh position={[0, -0.045, 0]}>
               <boxGeometry args={[0.05, 0.06, 0.05]} />
-              <meshLambertMaterial color={skin} />
+              <meshStandardMaterial roughness={0.5} metalness={0.02} color={skin} />
             </mesh>
           </>
         ) : (
           <>
             <mesh>
               <boxGeometry args={[0.07, 0.14, 0.08]} />
-              <meshLambertMaterial color={trouserColor} />
+              <meshStandardMaterial roughness={0.68} metalness={0.04} color={trouserColor} />
             </mesh>
             {bottomStyle === "cuffed" ? (
               <mesh position={[0, -0.05, 0]}>
                 <boxGeometry args={[0.074, 0.022, 0.084]} />
-                <meshLambertMaterial color="#d1d5db" />
+                <meshStandardMaterial roughness={0.68} metalness={0.04} color="#d1d5db" />
               </mesh>
             ) : null}
           </>
         )}
         <mesh position={[0, -0.09, 0]}>
           <boxGeometry args={[0.07, 0.05, 0.12]} />
-          <meshLambertMaterial color={shoeColor} />
+          <meshStandardMaterial roughness={0.68} metalness={0.04} color={shoeColor} />
         </mesh>
       </group>
       <group ref={leftLegRef} position={[0.045, 0.1, 0]}>
@@ -734,61 +780,61 @@ export const AgentModel = memo(function AgentModel({
           <>
             <mesh position={[0, 0.03, 0]}>
               <boxGeometry args={[0.07, 0.08, 0.08]} />
-              <meshLambertMaterial color={trouserColor} />
+              <meshStandardMaterial roughness={0.68} metalness={0.04} color={trouserColor} />
             </mesh>
             <mesh position={[0, -0.045, 0]}>
               <boxGeometry args={[0.05, 0.06, 0.05]} />
-              <meshLambertMaterial color={skin} />
+              <meshStandardMaterial roughness={0.5} metalness={0.02} color={skin} />
             </mesh>
           </>
         ) : (
           <>
             <mesh>
               <boxGeometry args={[0.07, 0.14, 0.08]} />
-              <meshLambertMaterial color={trouserColor} />
+              <meshStandardMaterial roughness={0.68} metalness={0.04} color={trouserColor} />
             </mesh>
             {bottomStyle === "cuffed" ? (
               <mesh position={[0, -0.05, 0]}>
                 <boxGeometry args={[0.074, 0.022, 0.084]} />
-                <meshLambertMaterial color="#d1d5db" />
+                <meshStandardMaterial roughness={0.68} metalness={0.04} color="#d1d5db" />
               </mesh>
             ) : null}
           </>
         )}
         <mesh position={[0, -0.09, 0]}>
           <boxGeometry args={[0.07, 0.05, 0.12]} />
-          <meshLambertMaterial color={shoeColor} />
+          <meshStandardMaterial roughness={0.68} metalness={0.04} color={shoeColor} />
         </mesh>
       </group>
       {showBackpack ? (
         <group position={[0, 0.28, -0.08]}>
           <mesh>
             <boxGeometry args={[0.15, 0.18, 0.06]} />
-            <meshLambertMaterial color={accessoryColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={accessoryColor} />
           </mesh>
           <mesh position={[-0.06, 0.02, 0.02]}>
             <boxGeometry args={[0.018, 0.16, 0.018]} />
-            <meshLambertMaterial color="#cbd5e1" />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color="#cbd5e1" />
           </mesh>
           <mesh position={[0.06, 0.02, 0.02]}>
             <boxGeometry args={[0.018, 0.16, 0.018]} />
-            <meshLambertMaterial color="#cbd5e1" />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color="#cbd5e1" />
           </mesh>
         </group>
       ) : null}
       <mesh position={[0, 0.28, 0]}>
         <boxGeometry args={[0.18, 0.2, 0.1]} />
-        <meshLambertMaterial ref={bodyMatRef} color={topColor} />
+        <meshStandardMaterial roughness={0.68} metalness={0.04} ref={bodyMatRef} color={topColor} />
       </mesh>
       {topStyle === "hoodie" ? (
         <>
           <mesh position={[0, 0.35, -0.045]}>
             <boxGeometry args={[0.17, 0.1, 0.03]} />
-            <meshLambertMaterial color={topColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={topColor} />
           </mesh>
           <mesh position={[0, 0.22, 0.056]}>
             <boxGeometry args={[0.11, 0.03, 0.012]} />
-            <meshLambertMaterial color={cuffColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={cuffColor} />
           </mesh>
         </>
       ) : null}
@@ -796,46 +842,35 @@ export const AgentModel = memo(function AgentModel({
         <>
           <mesh position={[0, 0.28, 0.056]}>
             <boxGeometry args={[0.182, 0.21, 0.012]} />
-            <meshLambertMaterial color={topAccentColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={topAccentColor} />
           </mesh>
           <mesh position={[0, 0.28, 0.063]}>
             <boxGeometry args={[0.034, 0.2, 0.01]} />
-            <meshLambertMaterial color="#f8fafc" />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color="#f8fafc" />
           </mesh>
         </>
       ) : null}
       <group ref={rightArmRef} position={[-0.12, 0.28, 0]}>
         <mesh position={[0, -0.08, 0]}>
           <boxGeometry args={[0.06, 0.16, 0.06]} />
-          <meshLambertMaterial color={sleeveColor} />
+          <meshStandardMaterial roughness={0.68} metalness={0.04} color={sleeveColor} />
         </mesh>
         {topStyle === "hoodie" ? (
           <mesh position={[0, -0.145, 0]}>
             <boxGeometry args={[0.064, 0.03, 0.064]} />
-            <meshLambertMaterial color={cuffColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={cuffColor} />
           </mesh>
         ) : null}
         <mesh position={[0, -0.17, 0]}>
           <boxGeometry args={[0.05, 0.05, 0.05]} />
-          <meshLambertMaterial color={skin} />
+          <meshStandardMaterial roughness={0.5} metalness={0.02} color={skin} />
         </mesh>
         <group
           ref={heldPaddleRef}
           position={[-0.01, -0.21, 0.07]}
           visible={false}
         >
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.042, 0.042, 0.012, 18]} />
-            <meshStandardMaterial
-              ref={heldPaddleFaceRef}
-              color="#c53b30"
-              roughness={0.72}
-            />
-          </mesh>
-          <mesh position={[0, -0.045, -0.015]} rotation={[0.12, 0, 0]}>
-            <boxGeometry args={[0.014, 0.07, 0.014]} />
-            <meshStandardMaterial color="#c59a68" roughness={0.74} />
-          </mesh>
+          <primitive object={paddleScene} scale={HELD_PROP_SCALE.paddle} />
         </group>
         <group
           ref={heldCleaningToolRef}
@@ -843,18 +878,7 @@ export const AgentModel = memo(function AgentModel({
           rotation={[-0.8, 0.18, -0.18]}
           visible={false}
         >
-          <mesh position={[0, -0.13, 0]}>
-            <boxGeometry args={[0.012, 0.28, 0.012]} />
-            <meshStandardMaterial color="#9a6b3c" roughness={0.76} />
-          </mesh>
-          <mesh position={[0, -0.28, 0.012]}>
-            <boxGeometry args={[0.09, 0.028, 0.03]} />
-            <meshStandardMaterial
-              ref={heldCleaningHeadRef}
-              color="#facc15"
-              roughness={0.68}
-            />
-          </mesh>
+          <primitive object={broomScene} scale={HELD_PROP_SCALE.broom} />
         </group>
         {/* Vacuum cleaner: larger upright silhouette so it reads clearly in-scene. */}
         <group
@@ -862,26 +886,7 @@ export const AgentModel = memo(function AgentModel({
           position={[-0.08, -0.1, 0.18]}
           visible={false}
         >
-          <mesh position={[0, -0.02, 0]}>
-            <boxGeometry args={[0.015, 0.3, 0.015]} />
-            <meshStandardMaterial color="#555" roughness={0.72} />
-          </mesh>
-          <mesh position={[0.025, -0.16, 0]}>
-            <boxGeometry args={[0.08, 0.12, 0.07]} />
-            <meshStandardMaterial color="#dc2626" roughness={0.48} />
-          </mesh>
-          <mesh position={[0.05, -0.24, 0.02]}>
-            <boxGeometry args={[0.11, 0.024, 0.06]} />
-            <meshStandardMaterial color="#1f2937" roughness={0.65} />
-          </mesh>
-          <mesh position={[0.02, -0.11, 0.035]} rotation={[0, Math.PI / 2, 0]}>
-            <torusGeometry args={[0.03, 0.005, 10, 18, Math.PI]} />
-            <meshStandardMaterial
-              color="#94a3b8"
-              roughness={0.36}
-              metalness={0.18}
-            />
-          </mesh>
+          <primitive object={vacuumScene} scale={HELD_PROP_SCALE.vacuum} />
         </group>
         {/* Floor scrubber: prominent handle, body, and wide cleaning base. */}
         <group
@@ -889,68 +894,56 @@ export const AgentModel = memo(function AgentModel({
           position={[-0.1, -0.08, 0.2]}
           visible={false}
         >
-          <mesh position={[0, -0.02, 0]}>
-            <boxGeometry args={[0.015, 0.32, 0.015]} />
-            <meshStandardMaterial color="#777" roughness={0.7} />
-          </mesh>
-          <mesh position={[0.035, -0.17, 0]}>
-            <boxGeometry args={[0.085, 0.08, 0.065]} />
-            <meshStandardMaterial color="#f59e0b" roughness={0.46} />
-          </mesh>
-          <mesh position={[0.06, -0.27, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.075, 0.075, 0.018, 24]} />
-            <meshStandardMaterial color="#0ea5e9" roughness={0.52} />
-          </mesh>
-          <mesh position={[0.06, -0.23, 0.02]}>
-            <boxGeometry args={[0.12, 0.018, 0.07]} />
-            <meshStandardMaterial color="#1f2937" roughness={0.6} />
-          </mesh>
+          <primitive
+            object={mopBucketScene}
+            scale={HELD_PROP_SCALE.mopBucket}
+          />
         </group>
       </group>
       <group ref={leftArmRef} position={[0.12, 0.28, 0]}>
         <mesh position={[0, -0.08, 0]}>
           <boxGeometry args={[0.06, 0.16, 0.06]} />
-          <meshLambertMaterial color={sleeveColor} />
+          <meshStandardMaterial roughness={0.68} metalness={0.04} color={sleeveColor} />
         </mesh>
         {topStyle === "hoodie" ? (
           <mesh position={[0, -0.145, 0]}>
             <boxGeometry args={[0.064, 0.03, 0.064]} />
-            <meshLambertMaterial color={cuffColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={cuffColor} />
           </mesh>
         ) : null}
         <mesh position={[0, -0.17, 0]}>
           <boxGeometry args={[0.05, 0.05, 0.05]} />
-          <meshLambertMaterial color={skin} />
+          <meshStandardMaterial roughness={0.5} metalness={0.02} color={skin} />
         </mesh>
       </group>
       <mesh position={[0, 0.39, 0]}>
         <boxGeometry args={[0.07, 0.05, 0.07]} />
-        <meshLambertMaterial color={skin} />
+        <meshStandardMaterial roughness={0.5} metalness={0.02} color={skin} />
       </mesh>
       <mesh position={[0, 0.47, 0]}>
         <boxGeometry args={[0.16, 0.16, 0.14]} />
-        <meshLambertMaterial attach="material-0" color={skin} />
-        <meshLambertMaterial attach="material-1" color={skin} />
-        <meshLambertMaterial attach="material-2" color={skin} />
-        <meshLambertMaterial attach="material-3" color={skin} />
-        <meshLambertMaterial attach="material-4" map={faceTexture} />
-        <meshLambertMaterial attach="material-5" color={skin} />
+        <meshStandardMaterial roughness={0.68} metalness={0.04} attach="material-0" color={skin} />
+        <meshStandardMaterial roughness={0.68} metalness={0.04} attach="material-1" color={skin} />
+        <meshStandardMaterial roughness={0.68} metalness={0.04} attach="material-2" color={skin} />
+        <meshStandardMaterial roughness={0.68} metalness={0.04} attach="material-3" color={skin} />
+        <meshStandardMaterial roughness={0.5} metalness={0.02} attach="material-4" map={faceTexture} />
+        <meshStandardMaterial roughness={0.68} metalness={0.04} attach="material-5" color={skin} />
       </mesh>
       {hairStyle === "short" ? (
         <mesh position={[0, 0.555, 0]}>
           <boxGeometry args={[0.17, 0.05, 0.15]} />
-          <meshLambertMaterial color={hairColor} />
+          <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
         </mesh>
       ) : null}
       {hairStyle === "parted" ? (
         <>
           <mesh position={[0, 0.555, 0]}>
             <boxGeometry args={[0.17, 0.045, 0.15]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
           <mesh position={[-0.035, 0.59, 0.01]} rotation={[0.1, 0, -0.2]}>
             <boxGeometry args={[0.12, 0.03, 0.08]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
         </>
       ) : null}
@@ -958,19 +951,19 @@ export const AgentModel = memo(function AgentModel({
         <>
           <mesh position={[0, 0.55, 0]}>
             <boxGeometry args={[0.16, 0.035, 0.14]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
           <mesh position={[-0.05, 0.59, 0]} rotation={[0, 0, -0.2]}>
             <boxGeometry args={[0.04, 0.06, 0.04]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
           <mesh position={[0, 0.605, 0]} rotation={[0, 0, 0]}>
             <boxGeometry args={[0.04, 0.08, 0.04]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
           <mesh position={[0.05, 0.59, 0]} rotation={[0, 0, 0.2]}>
             <boxGeometry args={[0.04, 0.06, 0.04]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
         </>
       ) : null}
@@ -978,11 +971,11 @@ export const AgentModel = memo(function AgentModel({
         <>
           <mesh position={[0, 0.548, 0]}>
             <boxGeometry args={[0.17, 0.04, 0.15]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
           <mesh position={[0, 0.6, -0.035]}>
             <sphereGeometry args={[0.042, 14, 14]} />
-            <meshLambertMaterial color={hairColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={hairColor} />
           </mesh>
         </>
       ) : null}
@@ -990,37 +983,37 @@ export const AgentModel = memo(function AgentModel({
         <>
           <mesh position={[0, 0.59, 0]}>
             <boxGeometry args={[0.172, 0.03, 0.152]} />
-            <meshLambertMaterial color={accessoryColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={accessoryColor} />
           </mesh>
           <mesh position={[0, 0.575, 0.07]}>
             <boxGeometry args={[0.09, 0.012, 0.05]} />
-            <meshLambertMaterial color={accessoryColor} />
+            <meshStandardMaterial roughness={0.68} metalness={0.04} color={accessoryColor} />
           </mesh>
         </>
       ) : null}
       {hatStyle === "beanie" ? (
         <mesh position={[0, 0.59, 0]}>
           <boxGeometry args={[0.18, 0.06, 0.16]} />
-          <meshLambertMaterial color={accessoryColor} />
+          <meshStandardMaterial roughness={0.68} metalness={0.04} color={accessoryColor} />
         </mesh>
       ) : null}
       {showHeadset ? (
         <>
           <mesh position={[0, 0.57, 0]} rotation={[0, 0, Math.PI / 2]}>
             <torusGeometry args={[0.09, 0.008, 8, 24, Math.PI]} />
-            <meshLambertMaterial color="#94a3b8" />
+            <meshStandardMaterial roughness={0.3} metalness={0.35} color="#94a3b8" />
           </mesh>
           <mesh position={[-0.1, 0.48, 0]}>
             <boxGeometry args={[0.018, 0.05, 0.028]} />
-            <meshLambertMaterial color="#475569" />
+            <meshStandardMaterial roughness={0.3} metalness={0.35} color="#475569" />
           </mesh>
           <mesh position={[0.1, 0.48, 0]}>
             <boxGeometry args={[0.018, 0.05, 0.028]} />
-            <meshLambertMaterial color="#475569" />
+            <meshStandardMaterial roughness={0.3} metalness={0.35} color="#475569" />
           </mesh>
           <mesh position={[0.085, 0.43, 0.06]} rotation={[0.25, 0.25, -0.4]}>
             <boxGeometry args={[0.012, 0.06, 0.012]} />
-            <meshLambertMaterial color="#94a3b8" />
+            <meshStandardMaterial roughness={0.3} metalness={0.35} color="#94a3b8" />
           </mesh>
         </>
       ) : null}
