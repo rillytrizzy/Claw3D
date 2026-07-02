@@ -13,6 +13,8 @@ This installation runs in **broker-first mode** — the local broker server (`se
 
 When the user says "run the app" or "check the runtime state," work against the broker endpoints above, not against an OpenClaw gateway.
 
+**Before touching any agent/office/chat code, read `OPERATIONS.md`** — it documents which of the 7 office avatars actually have a working backend today, the sessionKey routing contract that has already broken silently once, and the current setup/remaining-work checklist.
+
 ---
 
 ## Upstream Instructions (public / open source defaults)
