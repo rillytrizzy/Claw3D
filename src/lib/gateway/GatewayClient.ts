@@ -795,18 +795,24 @@ export const useGatewayConnection = (
           resolveDefaultStudioGatewayProfile(nextAdapterType, normalizedDefaults);
         const nextGatewayUrl = selectedProfile.url ?? "";
         const nextToken = selectedProfile.token ?? "";
+        const nextHasKnownGoodGateway =
+          Boolean(resolvedGatewayProfiles.lastKnownGoodForSelected?.url?.trim()) ||
+          Boolean(
+            normalizedDefaults?.adapterType === nextAdapterType &&
+              selectedProfile.url?.trim()
+          );
         loadedGatewaySettings.current = {
           gatewayUrl: nextGatewayUrl.trim(),
           token: nextToken,
           adapterType: nextAdapterType,
           profiles: resolvedGatewayProfiles.profiles,
-          hasLastKnownGood: Boolean(resolvedGatewayProfiles.lastKnownGoodForSelected?.url),
+          hasLastKnownGood: nextHasKnownGoodGateway,
         };
         setGatewayUrl(nextGatewayUrl);
         setToken(nextToken);
         setSelectedAdapterTypeState(nextAdapterType);
         setAdapterProfiles(resolvedGatewayProfiles.profiles);
-        setHasLastKnownGoodState(Boolean(resolvedGatewayProfiles.lastKnownGoodForSelected?.url));
+        setHasLastKnownGoodState(nextHasKnownGoodGateway);
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : "Failed to load gateway settings.";
@@ -1214,3 +1220,4 @@ export const useGatewayConnection = (
     clearError,
   };
 };
+

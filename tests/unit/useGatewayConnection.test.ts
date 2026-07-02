@@ -282,7 +282,7 @@ describe("useGatewayConnection", () => {
     render(createElement(Probe));
 
     await waitFor(() => {
-      expect(captured.url).toBe("ws://localhost:3000/api/gateway/ws");
+      expect(captured.url).toBe("ws://localhost:18789");
     });
     expect(captured.authScopeKey).toBe("ws://localhost:18789");
     expect(captured.clientName).toBe("openclaw-control-ui");
@@ -336,6 +336,60 @@ describe("useGatewayConnection", () => {
     });
     expect(screen.getByTestId("shouldPromptForConnect")).toHaveTextContent("yes");
     expect(captured.url).toBeNull();
+  });
+
+  it("auto_connects_using_matching_local_gateway_defaults_on_first_load", async () => {
+    const { useGatewayConnection, captured } = await setupAndImportHook(null);
+    const coordinator = {
+      loadSettingsEnvelope: async () => ({
+        settings: {
+          version: 1,
+          gateway: {
+            url: "ws://localhost:18789",
+            token: "",
+            adapterType: "hermes",
+          },
+          focused: {},
+          avatars: {},
+          analytics: {},
+          voiceReplies: {},
+          office: {},
+          deskAssignments: {},
+          standup: {},
+          taskBoard: {},
+        },
+        localGatewayDefaults: {
+          url: "ws://localhost:18789",
+          token: "",
+          adapterType: "hermes",
+        },
+      }),
+      loadSettings: async () => null,
+      schedulePatch: () => {},
+      flushPending: async () => {},
+    };
+
+    const Probe = () => {
+      const state = useGatewayConnection(coordinator);
+      return createElement(
+        "div",
+        null,
+        createElement(
+          "div",
+          { "data-testid": "shouldPromptForConnect" },
+          state.shouldPromptForConnect ? "yes" : "no"
+        )
+      );
+    };
+
+    render(createElement(Probe));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("shouldPromptForConnect")).toHaveTextContent("no");
+      expect(captured.url).toBe("ws://localhost:18789");
+    });
+    expect(captured.authScopeKey).toBe("ws://localhost:18789");
+    expect(captured.clientName).toBe("openclaw-control-ui");
   });
 
   it("uses_a_small_initial_auto_connect_delay_for_hermes_and_demo_only", async () => {
@@ -864,3 +918,4 @@ describe("useGatewayConnection", () => {
     });
   });
 });
+
